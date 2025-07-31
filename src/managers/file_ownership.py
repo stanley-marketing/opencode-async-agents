@@ -88,7 +88,7 @@ class FileOwnershipManager:
         finally:
             conn.close()
     
-    def fire_employee(self, name: str) -> bool:
+    def fire_employee(self, name: str, task_tracker=None) -> bool:
         """Fire an employee and release all their files"""
         logger.info(f"Firing employee: {name}")
         
@@ -112,6 +112,11 @@ class FileOwnershipManager:
             )
             
             conn.commit()
+            
+            # Clean up session data if task tracker is provided
+            if task_tracker:
+                task_tracker.cleanup_employee_session(name)
+            
             logger.info(f"Successfully fired employee: {name}")
             return True
         except Exception as e:

@@ -27,13 +27,14 @@ class OpencodeSession:
     
     def __init__(self, employee_name: str, task_description: str, 
                  file_manager: FileOwnershipManager, task_tracker: TaskProgressTracker,
-                 model: Optional[str] = None, mode: str = "plan"):
+                 model: Optional[str] = None, mode: str = "build", quiet_mode: bool = False):
         self.employee_name = employee_name
         self.task_description = task_description
         self.file_manager = file_manager
         self.task_tracker = task_tracker
         self.model = model
         self.mode = mode
+        self.quiet_mode = quiet_mode  # Suppress console output in CLI mode
         self.session_id = f"{employee_name}_{int(time.time())}"
         self.process = None
         self.thread = None
@@ -42,6 +43,14 @@ class OpencodeSession:
         self.files_locked = []
         self.session_dir = Path("sessions") / employee_name
         self.session_dir.mkdir(parents=True, exist_ok=True)
+        self.output_buffer = []  # Buffer output for quiet mode
+    
+    def _print(self, message: str):
+        """Print message respecting quiet mode"""
+        if self.quiet_mode:
+            self.output_buffer.append(message)
+        else:
+            print(message)
         
     def start_session(self, progress_callback: Optional[Callable] = None):
         """Start the opencode session in background"""
@@ -52,9 +61,9 @@ class OpencodeSession:
         self.thread = threading.Thread(target=self._run_session, daemon=True)
         self.thread.start()
         
-        print(f"🚀 Started opencode session for {self.employee_name}")
-        print(f"   Session ID: {self.session_id}")
-        print(f"   Task: {self.task_description}")
+        self._print(f"🚀 Started opencode session for {self.employee_name}")
+        self._print(f"   Session ID: {self.session_id}")
+        self._print(f"   Task: {self.task_description[:200]}{'...' if len(self.task_description) > 200 else ''}")
         
         return self.session_id
     
@@ -62,10 +71,12 @@ class OpencodeSession:
         """Run the actual opencode session"""
         try:
             # Step 1: Analyze task to determine files needed
+            self.task_tracker.update_current_work(self.employee_name, "🔍 Analyzing task and identifying required files...")
             files_needed = self._analyze_task_for_files()
-            print(f"   📁 {self.employee_name} identified files needed: {', '.join(files_needed)}")
+            self._print(f"   📁 {self.employee_name} identified files needed: {', '.join(files_needed)}")
             
             # Step 2: Lock files
+            self.task_tracker.update_current_work(self.employee_name, f"🔒 Attempting to lock {len(files_needed)} files...")
             lock_result = self.file_manager.lock_files(
                 self.employee_name, files_needed, self.task_description
             )
@@ -77,11 +88,13 @@ class OpencodeSession:
                     self.files_locked.append(file_path)
             
             if not successfully_locked:
-                print(f"   ❌ {self.employee_name} couldn't lock any files - task blocked")
+                self.task_tracker.update_current_work(self.employee_name, "❌ Could not lock any files - task blocked")
+                self._print(f"   ❌ {self.employee_name} couldn't lock any files - task blocked")
                 self.is_running = False
                 return
             
-            print(f"   🔒 {self.employee_name} locked files: {', '.join(successfully_locked)}")
+            self._print(f"   🔒 {self.employee_name} locked files: {', '.join(successfully_locked)}")
+            self.task_tracker.update_current_work(self.employee_name, f"✅ Successfully locked {len(successfully_locked)} files")
             
             # Step 3: Create task tracking
             self.task_tracker.create_task_file(
@@ -89,25 +102,70 @@ class OpencodeSession:
             )
             
             # Step 4: Run actual opencode command
+            self.task_tracker.update_current_work(self.employee_name, f"🧠 Executing opencode with {self.model or 'default model'}...")
             result = self._execute_opencode_command()
             
-            if result["success"]:
-                print(f"   ✅ {self.employee_name} completed opencode execution")
+            # Check for API errors in the output even if returncode is 0
+            output_text = result.get("stdout", "") + result.get("stderr", "")
+            has_api_error = any(error in output_text for error in [
+                "AI_APICallError", "Request body too large", "API error", "Authentication failed",
+                "Rate limit exceeded", "Model not found", "Invalid API key"
+            ])
+            
+            if result["success"] and not has_api_error:
+                self._print(f"   ✅ {self.employee_name} completed opencode execution")
+                self.task_tracker.update_current_work(self.employee_name, "✅ opencode execution completed successfully - processing results...")
                 self._process_opencode_output(result["stdout"], successfully_locked)
             else:
-                print(f"   ❌ {self.employee_name} opencode execution failed: {result.get('error', 'Unknown error')}")
+                error_msg = result.get('error', 'Unknown error')
+                if has_api_error:
+                    # Extract the specific API error
+                    for line in output_text.split('\n'):
+                        if any(err in line for err in ["AI_APICallError", "Request body too large"]):
+                            error_msg = line.strip()
+                            break
+                self.task_tracker.update_current_work(self.employee_name, f"❌ opencode execution failed: {error_msg}")
+                self._print(f"   ❌ {self.employee_name} opencode execution failed: {error_msg}")
+                self._print(f"   💡 Try using a different model with: assign {self.employee_name} '<task>' claude-3.5-sonnet")
                 
         except Exception as e:
-            print(f"   💥 {self.employee_name} session crashed: {str(e)}")
+            self.task_tracker.update_current_work(self.employee_name, f"💥 Session crashed: {str(e)}")
+            self._print(f"   💥 {self.employee_name} session crashed: {str(e)}")
         finally:
             self.is_running = False
+            self.task_tracker.update_current_work(self.employee_name, "🧹 Cleaning up session and releasing files...")
             self._cleanup_session()
+            # Mark task as complete in the task tracker
+            self.task_tracker.mark_task_complete(self.employee_name)
     
     def _analyze_task_for_files(self) -> List[str]:
         """Analyze task description to determine what files might be needed"""
+        import re
+        import os
         files = []
         task_lower = self.task_description.lower()
         
+        # First, look for explicit file paths in the task description
+        # Match patterns like /path/to/file.ext or ./file.ext or file.ext
+        file_patterns = [
+            r'[/~][\w\-./]+\.\w+',  # Absolute paths like /home/user/file.html
+            r'\.[\w\-./]+\.\w+',    # Relative paths like ./file.html
+            r'\b[\w\-]+\.\w+\b'     # Simple filenames like file.html
+        ]
+        
+        for pattern in file_patterns:
+            matches = re.findall(pattern, self.task_description)
+            for match in matches:
+                # Check if the file actually exists
+                if os.path.exists(match):
+                    files.append(match)
+                    self._print(f"   📄 Found existing file in task: {match}")
+        
+        # If we found explicit files, prioritize those
+        if files:
+            return list(set(files))
+        
+        # Otherwise, fall back to keyword-based analysis
         # Authentication related
         if any(word in task_lower for word in ["auth", "authentication", "login", "jwt", "token"]):
             files.extend(["src/auth.py", "src/user.py", "src/jwt.py", "src/middleware/auth.py"])
@@ -128,9 +186,9 @@ class OpencodeSession:
         if any(word in task_lower for word in ["config", "configuration", "settings", "env"]):
             files.extend(["config/", "src/config.py", ".env", "settings.py"]) 
         
-        # Frontend related
-        if any(word in task_lower for word in ["ui", "frontend", "component", "react", "vue"]):
-            files.extend(["src/components/", "src/pages/", "src/views/", "public/"]) 
+        # Frontend/HTML related
+        if any(word in task_lower for word in ["ui", "frontend", "component", "react", "vue", "html", "css", "background", "style"]):
+            files.extend(["src/components/", "src/pages/", "src/views/", "public/", "*.html", "*.css"]) 
         
         # Default files if no specific patterns found
         if not files:
@@ -139,6 +197,72 @@ class OpencodeSession:
         # Remove duplicates and return
         return list(set(files))
     
+    def _create_enhanced_prompt(self) -> str:
+        """Create an enhanced prompt with progress tracking instructions"""
+        task_file_path = self.session_dir / "current_task.md"
+        
+        enhanced_prompt = f"""
+🚨 URGENT: YOU MUST UPDATE YOUR TASK FILE {task_file_path} THROUGHOUT THIS WORK! 🚨
+
+EMPLOYEE: {self.employee_name}
+ORIGINAL REQUEST: {self.task_description}
+
+CRITICAL REQUIREMENTS - YOU MUST DO THESE:
+1. You are an AI employee working on the above task
+2. You MUST physically edit and update the file: {task_file_path}
+3. Use the 'edit' tool to modify the "## Current Work:" section with what you're doing
+4. Use the 'edit' tool to update the "## File Status:" section with percentage complete
+5. When you complete work on a file, edit the status to "100% complete (READY TO RELEASE)"
+
+EXAMPLE OF REQUIRED TASK FILE UPDATES:
+- When starting: Edit "## Current Work:" to "🔍 Analyzing HTML file structure..."
+- When working: Edit "## Current Work:" to "✏️ Adding HTML comment to demonstrate editing capability..."
+- When done: Edit file status to "100% complete (READY TO RELEASE)"
+
+FILE LOCKING SYSTEM:
+- Files have been pre-locked for you based on the task analysis
+- However, if you need additional files, be EXTREMELY SPECIFIC about which ones
+- Use FULL ABSOLUTE PATHS when mentioning files (e.g., /home/user/project/src/component.js)
+- Only work on files you will actually modify
+- If you need to read a file to understand it, mention that clearly
+- Example: "I need to modify /home/user/project/index.html to add CSS styles in the <style> section"
+- Be specific about what changes you'll make to each file
+
+TASK FILE LOCATION: {task_file_path}
+⚠️  THIS FILE ALREADY EXISTS - YOU MUST EDIT IT TO UPDATE YOUR PROGRESS ⚠️
+
+Your task file has these sections you MUST update using the 'edit' tool:
+- ## Current Work: (update this frequently with your current activity)
+- ## File Status: (update percentages as you work on files)
+- ## Progress: (check off completed items)
+
+MANDATORY WORKFLOW - FOLLOW EXACTLY:
+1. FIRST: Use 'edit' tool to update {task_file_path} "## Current Work:" section with "🔍 Starting task analysis..."
+2. Use 'edit' tool to check off "- [x] Task started" in the Progress section
+3. Analyze the task and identify EXACTLY which files you need to modify
+4. Use 'edit' tool to update "## Current Work:" with "📋 Planning implementation approach..."
+5. Use 'edit' tool to check off "- [x] Files analyzed" in the Progress section
+6. Use 'edit' tool to update "## Current Work:" with "✏️ Beginning implementation..."
+7. Use 'edit' tool to check off "- [x] Implementation in progress" in the Progress section
+8. Complete the actual work on the target files
+9. DURING WORK: Use 'edit' tool to update file status percentages (e.g., "50% complete (in progress)")
+10. Use 'edit' tool to update "## Current Work:" with "🧪 Testing changes..."
+11. Use 'edit' tool to check off "- [x] Testing completed" in the Progress section
+12. FINALLY: Use 'edit' tool to mark files as "100% complete (READY TO RELEASE)"
+13. Use 'edit' tool to check off "- [x] Ready for review" in the Progress section
+
+YOU MUST USE THE 'edit' TOOL TO UPDATE {task_file_path} AT EACH STEP!
+
+Please complete the original request: {self.task_description}
+
+REMEMBER: 
+- Be specific about file paths
+- YOU MUST USE THE 'edit' TOOL TO UPDATE {task_file_path} THROUGHOUT THE PROCESS
+- Your manager is watching your progress in that file
+- Update it frequently so they know you're working!
+"""
+        return enhanced_prompt.strip()
+    
     def _execute_opencode_command(self) -> Dict:
         """Execute the actual opencode command"""
         cmd = ["opencode", "run", "--mode", self.mode]
@@ -146,9 +270,17 @@ class OpencodeSession:
         if self.model:
             cmd.extend(["--model", self.model])
         
-        cmd.append(self.task_description)
+        # Create enhanced prompt with progress tracking instructions
+        enhanced_prompt = self._create_enhanced_prompt()
+        cmd.append(enhanced_prompt)
         
-        print(f"   🧠 {self.employee_name} executing: {' '.join(cmd)}")
+        # Show simplified command for display (the actual prompt is much longer)
+        display_cmd = ["opencode", "run", "--mode", self.mode]
+        if self.model:
+            display_cmd.extend(["--model", self.model])
+        display_cmd.append(f"'{self.task_description[:50]}...'")
+        self._print(f"   🧠 {self.employee_name} executing: {' '.join(display_cmd)}")
+        self._print(f"   📝 Enhanced prompt includes progress tracking instructions")
         
         try:
             # Run opencode with real-time output capture
@@ -214,7 +346,7 @@ class OpencodeSession:
                 self.task_tracker.update_file_status(
                     self.employee_name, file_path, 50, f"Working on {file_path}"
                 )
-                print(f"      📝 {self.employee_name} working on {file_path}")
+                self._print(f"      📝 {self.employee_name} working on {file_path}")
         
         # Look for completion indicators
         if "Task completed" in line or "Done" in line or "Finished" in line:
@@ -222,7 +354,7 @@ class OpencodeSession:
                 self.task_tracker.update_file_status(
                     self.employee_name, file_path, 100, "READY TO RELEASE"
                 )
-            print(f"      ✅ {self.employee_name} completed work on all files")
+            self._print(f"      ✅ {self.employee_name} completed work on all files")
     
     def _process_opencode_output(self, output: str, files_locked: List[str]):
         """Process the final opencode output and update progress"""
@@ -244,7 +376,7 @@ class OpencodeSession:
         modified_files = list(set(modified_files))
         
         if modified_files:
-            print(f"      📄 {self.employee_name} modified files: {', '.join(modified_files)}")
+            self._print(f"      📄 {self.employee_name} modified files: {', '.join(modified_files)}")
             
             # Update progress for actually modified files
             for file_path in modified_files:
@@ -264,7 +396,7 @@ class OpencodeSession:
         with open(output_file, 'w') as f:
             f.write(f"Session: {self.session_id}\n")
             f.write(f"Employee: {self.employee_name}\n")
-            f.write(f"Task: {self.task_description}\n")
+            f.write(f"Task: {self.task_description}\n")  # Full task description in log file
             f.write(f"Timestamp: {datetime.now().isoformat()}\n")
             f.write(f"Files Locked: {', '.join(files_locked)}\n")
             f.write(f"Files Modified: {', '.join(modified_files)}\n")
@@ -276,29 +408,41 @@ class OpencodeSession:
         if self.process and self.process.poll() is None:
             self.process.terminate()
         
-        # Note: We don't release file locks here - they should be released
-        # manually when the work is approved and merged
+        # Release locked files when session is stopped/cleaned up
+        if self.files_locked:
+            released = self.file_manager.release_files(self.employee_name, self.files_locked)
+            if released:
+                self._print(f"   🔓 {self.employee_name} released files: {', '.join(released)}")
         
-        print(f"   🧹 {self.employee_name} session {self.session_id} cleaned up")
+        self._print(f"   🧹 {self.employee_name} session {self.session_id} cleaned up")
     
     def stop_session(self):
         """Stop the running session"""
         self.is_running = False
         if self.process and self.process.poll() is None:
             self.process.terminate()
-        print(f"   🛑 Stopped session {self.session_id} for {self.employee_name}")
+        
+        # Release locked files when session is manually stopped
+        if self.files_locked:
+            released = self.file_manager.release_files(self.employee_name, self.files_locked)
+            if released:
+                self._print(f"   🔓 {self.employee_name} released files: {', '.join(released)}")
+            self.files_locked.clear()
+        
+        self._print(f"   🛑 Stopped session {self.session_id} for {self.employee_name}")
 
 
 class OpencodeSessionManager:
     """Manages multiple opencode sessions for different employees"""
     
-    def __init__(self, db_path: str = "employees.db", sessions_dir: str = "sessions"):
+    def __init__(self, db_path: str = "employees.db", sessions_dir: str = "sessions", quiet_mode: bool = False):
         self.file_manager = FileOwnershipManager(db_path)
         self.task_tracker = TaskProgressTracker(sessions_dir)
         self.active_sessions: Dict[str, OpencodeSession] = {}
+        self.quiet_mode = quiet_mode
         
     def start_employee_task(self, employee_name: str, task_description: str, 
-                          model: Optional[str] = None, mode: str = "plan") -> str:
+                           model: Optional[str] = None, mode: str = "build") -> str:
         """Start a new task for an employee"""
         
         # Check if employee exists
@@ -322,7 +466,7 @@ class OpencodeSessionManager:
         session = OpencodeSession(
             employee_name, task_description, 
             self.file_manager, self.task_tracker,
-            model, mode
+            model, mode, self.quiet_mode
         )
         
         session_id = session.start_session()
@@ -333,7 +477,10 @@ class OpencodeSessionManager:
     def stop_employee_task(self, employee_name: str):
         """Stop an employee's active task"""
         if employee_name in self.active_sessions:
-            self.active_sessions[employee_name].stop_session()
+            session = self.active_sessions[employee_name]
+            session.stop_session()
+            # Ensure cleanup is called
+            session._cleanup_session()
             del self.active_sessions[employee_name]
             print(f"✅ Stopped task for {employee_name}")
         else:
@@ -341,6 +488,18 @@ class OpencodeSessionManager:
     
     def get_active_sessions(self) -> Dict[str, Dict]:
         """Get information about all active sessions"""
+        # First, clean up completed sessions
+        completed_sessions = []
+        for employee_name, session in self.active_sessions.items():
+            if not session.is_running and session.thread and not session.thread.is_alive():
+                completed_sessions.append(employee_name)
+        
+        # Remove completed sessions
+        for employee_name in completed_sessions:
+            print(f"🏁 {employee_name} task completed - removing from active sessions")
+            del self.active_sessions[employee_name]
+        
+        # Return info for remaining active sessions
         sessions_info = {}
         for employee_name, session in self.active_sessions.items():
             sessions_info[employee_name] = {
@@ -358,7 +517,7 @@ class OpencodeSessionManager:
 
 
 # Legacy function for backward compatibility
-def run_opencode_command(employee_name, task_description, model=None, mode="plan"):
+def run_opencode_command(employee_name, task_description, model=None, mode="build"):
     """
     Legacy function - use OpencodeSessionManager for new code
     """
@@ -378,7 +537,7 @@ def main():
     
     # Show the command that would be run
     print("Example command that would be executed:")
-    print("  opencode run --mode plan 'Analyze the user authentication requirements'")
+    print("  opencode run --mode build 'Analyze the user authentication requirements'")
     print()
     
     print("To use this in your system:")

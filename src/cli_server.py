@@ -19,13 +19,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.managers.file_ownership import FileOwnershipManager
 from src.trackers.task_progress import TaskProgressTracker
+from src.config.logging_config import setup_logging
 from src.utils.opencode_wrapper import OpencodeSessionManager
 
 class CLIServer:
     def __init__(self, db_path="employees.db", sessions_dir="sessions"):
+        # Configure logging for CLI mode (no console output)
+        setup_logging(cli_mode=True)
+        
         self.file_manager = FileOwnershipManager(db_path)
         self.task_tracker = TaskProgressTracker(sessions_dir)
-        self.session_manager = OpencodeSessionManager(db_path, sessions_dir)
+        self.session_manager = OpencodeSessionManager(db_path, sessions_dir, quiet_mode=True)
         self.running = True
         self.command_history_file = os.path.expanduser("~/.opencode_slack_history")
         self.load_history()
@@ -75,7 +79,16 @@ class CLIServer:
 
     def handle_command(self, command_line):
         """Handle a command from the user"""
-        parts = command_line.split()
+        import shlex
+        try:
+            parts = shlex.split(command_line)
+        except ValueError as e:
+            print(f"Error parsing command: {e}")
+            return
+        
+        if not parts:
+            return
+            
         command = parts[0].lower()
         
         if command == "help":
@@ -109,10 +122,16 @@ class CLIServer:
             self.handle_deny(parts[1:])
         elif command == "progress":
             self.handle_progress(parts[1:])
+        elif command == "task":
+            self.handle_task(parts[1:])
+        elif command == "cleanup":
+            self.handle_cleanup(parts[1:])
         elif command == "employees":
             self.handle_employees(parts[1:])
         elif command == "files":
             self.handle_files(parts[1:])
+        elif command == "clear":
+            self.handle_clear(parts[1:])
         elif command == "history":
             self.handle_history(parts[1:])
         else:
@@ -135,9 +154,12 @@ class CLIServer:
         print("  approve <request_id>            - Approve a file request")
         print("  deny <request_id>               - Deny a file request")
         print("  progress [name]                 - Show progress for employee (or all)")
+        print("  task <name>                     - Show current task file for employee")
+        print("  cleanup                         - Clean up completed sessions")
         print("  employees                       - List all employees and their status")
         print("  files [name]                    - Show locked files (for employee or all)")
         print("  history                         - Show command history")
+        print("  clear                           - Clear the screen")
         print("  help                            - Show this help")
         print("  quit                            - Exit the server")
         print()
@@ -150,13 +172,13 @@ class CLIServer:
         """Handle assign command - now with REAL opencode sessions"""
         if len(args) < 2:
             print("Usage: assign <name> <task_description> [model] [mode]")
-            print("Example: assign sarah 'implement user auth' claude-3.5 plan")
+            print("Example: assign sarah 'implement user auth' openrouter/qwen/qwen3-coder build")
             return
         
         name = args[0]
         task_description = args[1]
-        model = args[2] if len(args) > 2 else None
-        mode = args[3] if len(args) > 3 else "plan"
+        model = args[2] if len(args) > 2 else "openrouter/qwen/qwen3-coder"
+        mode = args[3] if len(args) > 3 else "build"
         
         # Make sure employee exists
         employees = self.file_manager.list_employees()
@@ -169,7 +191,7 @@ class CLIServer:
                 return
             print(f"✅ Hired {name} as developer")
         
-        # Start real opencode session
+        # Start real opencode session with callback to reprint prompt
         session_id = self.session_manager.start_employee_task(
             name, task_description, model, mode
         )
@@ -177,6 +199,7 @@ class CLIServer:
         if session_id:
             print(f"🚀 Started REAL opencode session for {name}")
             print(f"📋 Session ID: {session_id}")
+            print("   (Task running in background - use 'status' to check progress)")
         else:
             print(f"❌ Failed to start opencode session for {name}")
     
@@ -266,8 +289,6 @@ class CLIServer:
             print(f"     📋 Session: {session_info['session_id']}")
             if session_info['files_locked']:
                 print(f"     🔒 Files: {', '.join(session_info['files_locked'])}")
-        
-        print(f"   🚀 {name} is now working on the task!")
 
     def _analyze_task_for_files(self, task_description):
         """
@@ -325,6 +346,9 @@ class CLIServer:
         
         if self.file_manager.hire_employee(name, role):
             print(f"✅ Successfully hired {name} as a {role}!")
+            # Show updated employee count
+            employees = self.file_manager.list_employees()
+            print(f"📊 Total employees: {len(employees)}")
         else:
             print(f"❌ Failed to hire {name}. Employee may already exist.")
 
@@ -336,8 +360,12 @@ class CLIServer:
         
         name = args[0]
         
-        if self.file_manager.fire_employee(name):
-            print(f"✅ Successfully fired {name}.")
+        # Stop any active sessions first
+        if name in self.session_manager.active_sessions:
+            self.session_manager.stop_employee_task(name)
+        
+        if self.file_manager.fire_employee(name, self.session_manager.task_tracker):
+            print(f"✅ Successfully fired {name} and cleaned up their session data.")
         else:
             print(f"❌ Failed to fire {name}. Employee may not exist.")
 
@@ -475,6 +503,34 @@ class CLIServer:
             else:
                 print(f"❌ No progress found for {name}")
 
+    def handle_task(self, args):
+        """Handle task command - show current task file content"""
+        if len(args) < 1:
+            print("Usage: task <employee_name>")
+            return
+        
+        name = args[0]
+        task_file = f"sessions/{name}/current_task.md"
+        
+        try:
+            with open(task_file, 'r') as f:
+                content = f.read()
+            print(f"📋 Current task file for {name}:")
+            print("=" * 50)
+            print(content)
+            print("=" * 50)
+        except FileNotFoundError:
+            print(f"❌ No task file found for {name}")
+        except Exception as e:
+            print(f"❌ Error reading task file: {e}")
+
+    def handle_cleanup(self, args):
+        """Handle cleanup command - clean up completed sessions"""
+        print("🧹 Cleaning up completed sessions...")
+        # This will trigger the cleanup in get_active_sessions
+        active = self.session_manager.get_active_sessions()
+        print(f"✅ Active sessions remaining: {len(active)}")
+
     def handle_employees(self, args):
         """Handle employees command"""
         employees = self.file_manager.list_employees()
@@ -502,16 +558,18 @@ class CLIServer:
                     print(f"  {employee['name']}:")
                     for file_info in files:
                         print(f"    - {file_info['file_path']} ({file_info['task_description']})")
-        else:
-            # Show files for specific employee
-            name = args[0]
-            files = self.file_manager.get_employee_files(name)
-            if files:
-                print(f"Files locked by {name}:")
-                for file_info in files:
-                    print(f"  - {file_info['file_path']} ({file_info['task_description']})")
-            else:
-                print(f"❌ No files locked by {name}")
+                else:
+                    print(f"❌ No files locked by {employee['name']}")
+
+    def handle_clear(self, args):
+        """Handle clear command - clear the screen"""
+        import os
+        os.system("clear" if os.name == "posix" else "cls")
+        print("=== opencode-slack CLI Server ===")
+        print("Type 'help' for available commands")
+        print("Use ↑/↓ arrows for command history")
+        print("Type 'quit' to exit")
+        print()
 
 def main():
     """Main function"""

@@ -215,6 +215,25 @@ Task assigned at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         logger.info(f"Task marked complete for {employee_name} and archived to {archived_file}")
         return True
     
+    def cleanup_employee_session(self, employee_name: str):
+        """Clean up all session data for an employee (used when firing)"""
+        import shutil
+        logger.info(f"Cleaning up session data for {employee_name}")
+        
+        employee_session_dir = os.path.join(self.sessions_dir, employee_name)
+        
+        if os.path.exists(employee_session_dir):
+            try:
+                shutil.rmtree(employee_session_dir)
+                logger.info(f"Session directory removed for {employee_name}")
+                return True
+            except Exception as e:
+                logger.error(f"Error removing session directory for {employee_name}: {e}")
+                return False
+        else:
+            logger.info(f"No session directory found for {employee_name}")
+            return True
+    
     def get_all_progress(self) -> Dict[str, Dict]:
         """Get progress for all employees"""
         logger.info("Getting progress for all employees")
@@ -235,6 +254,47 @@ Task assigned at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         logger.info(f"Retrieved progress for {len(all_progress)} employees")
         return all_progress
     
+    def update_current_work(self, employee_name: str, work_description: str):
+        """Update the current work section of the task file"""
+        logger.info(f"Updating current work for {employee_name}: {work_description}")
+        
+        task_file = os.path.join(self.sessions_dir, employee_name, "current_task.md")
+        
+        if not os.path.exists(task_file):
+            logger.warning(f"No task file found for {employee_name}")
+            return False
+        
+        with open(task_file, 'r') as f:
+            content = f.read()
+        
+        lines = content.split('\n')
+        updated_lines = []
+        in_current_work = False
+        work_updated = False
+        
+        for line in lines:
+            if line.strip().startswith('## Current Work:'):
+                in_current_work = True
+                updated_lines.append(line)
+                updated_lines.append(f"{work_description}")
+                updated_lines.append(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                work_updated = True
+            elif line.strip().startswith('##') and in_current_work:
+                in_current_work = False
+                updated_lines.append(line)
+            elif not in_current_work:
+                updated_lines.append(line)
+            # Skip old current work content when in_current_work is True
+        
+        if work_updated:
+            with open(task_file, 'w') as f:
+                f.write('\n'.join(updated_lines))
+            logger.info(f"Current work updated for {employee_name}")
+            return True
+        
+        logger.warning(f"Could not update current work for {employee_name}")
+        return False
+
     def suggest_file_releases(self, employee_name: str) -> List[str]:
         """Suggest files that can be released based on progress"""
         logger.info(f"Suggesting file releases for {employee_name}")
