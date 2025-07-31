@@ -21,6 +21,9 @@ from src.managers.file_ownership import FileOwnershipManager
 from src.trackers.task_progress import TaskProgressTracker
 from src.config.logging_config import setup_logging
 from src.utils.opencode_wrapper import OpencodeSessionManager
+from src.chat.telegram_manager import TelegramManager
+from src.agents.agent_manager import AgentManager
+from src.bridge.agent_bridge import AgentBridge
 
 class CLIServer:
     def __init__(self, db_path="employees.db", sessions_dir="sessions"):
@@ -30,6 +33,12 @@ class CLIServer:
         self.file_manager = FileOwnershipManager(db_path)
         self.task_tracker = TaskProgressTracker(sessions_dir)
         self.session_manager = OpencodeSessionManager(db_path, sessions_dir, quiet_mode=True)
+        
+        # Initialize chat system
+        self.telegram_manager = TelegramManager()
+        self.agent_manager = AgentManager(self.file_manager, self.telegram_manager)
+        self.agent_bridge = AgentBridge(self.session_manager, self.agent_manager)
+        self.chat_enabled = False
         self.running = True
         self.command_history_file = os.path.expanduser("~/.opencode_slack_history")
         self.load_history()
@@ -126,6 +135,18 @@ class CLIServer:
             self.handle_task(parts[1:])
         elif command == "cleanup":
             self.handle_cleanup(parts[1:])
+        elif command == "chat":
+            self.handle_chat(parts[1:])
+        elif command == "chat-start":
+            self.handle_chat_start(parts[1:])
+        elif command == "chat-stop":
+            self.handle_chat_stop(parts[1:])
+        elif command == "chat-status":
+            self.handle_chat_status(parts[1:])
+        elif command == "agents":
+            self.handle_agents(parts[1:])
+        elif command == "bridge":
+            self.handle_bridge(parts[1:])
         elif command == "employees":
             self.handle_employees(parts[1:])
         elif command == "files":
@@ -156,6 +177,14 @@ class CLIServer:
         print("  progress [name]                 - Show progress for employee (or all)")
         print("  task <name>                     - Show current task file for employee")
         print("  cleanup                         - Clean up completed sessions")
+        print("")
+        print("🔥 CHAT COMMANDS:")
+        print("  chat <message>                  - Send message to Telegram group")
+        print("  chat-start                      - Start Telegram chat system")
+        print("  chat-stop                       - Stop Telegram chat system")
+        print("  chat-status                     - Show chat system status")
+        print("  agents                          - Show communication agents status")
+        print("  bridge                          - Show agent bridge status")
         print("  employees                       - List all employees and their status")
         print("  files [name]                    - Show locked files (for employee or all)")
         print("  history                         - Show command history")
@@ -346,9 +375,15 @@ class CLIServer:
         
         if self.file_manager.hire_employee(name, role):
             print(f"✅ Successfully hired {name} as a {role}!")
+            
+            # Create communication agent
+            expertise = self.agent_manager._get_expertise_for_role(role)
+            self.agent_manager.create_agent(name, role, expertise)
+            
             # Show updated employee count
             employees = self.file_manager.list_employees()
             print(f"📊 Total employees: {len(employees)}")
+            print(f"🤖 Communication agent created for {name}")
         else:
             print(f"❌ Failed to hire {name}. Employee may already exist.")
 
@@ -364,8 +399,12 @@ class CLIServer:
         if name in self.session_manager.active_sessions:
             self.session_manager.stop_employee_task(name)
         
+        # Remove communication agent
+        self.agent_manager.remove_agent(name)
+        
         if self.file_manager.fire_employee(name, self.session_manager.task_tracker):
             print(f"✅ Successfully fired {name} and cleaned up their session data.")
+            print(f"🤖 Communication agent removed for {name}")
         else:
             print(f"❌ Failed to fire {name}. Employee may not exist.")
 
@@ -530,6 +569,125 @@ class CLIServer:
         # This will trigger the cleanup in get_active_sessions
         active = self.session_manager.get_active_sessions()
         print(f"✅ Active sessions remaining: {len(active)}")
+
+    def handle_chat(self, args):
+        """Handle chat command - send message to Telegram group"""
+        if not args:
+            print("Usage: chat <message>")
+            return
+        
+        message = " ".join(args)
+        
+        if not self.telegram_manager.is_connected():
+            print("❌ Chat system not connected. Use 'chat-start' first.")
+            return
+        
+        success = self.telegram_manager.send_message(message, "system")
+        if success:
+            print(f"✅ Message sent to chat: {message}")
+        else:
+            print("❌ Failed to send message")
+
+    def handle_chat_start(self, args):
+        """Handle chat-start command"""
+        if self.chat_enabled:
+            print("✅ Chat system is already running")
+            return
+        
+        from src.chat.chat_config import config
+        if not config.is_configured():
+            print("❌ Chat system not configured.")
+            print("Please set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID environment variables.")
+            print("See TELEGRAM_SETUP.md for instructions.")
+            return
+        
+        try:
+            self.telegram_manager.start_polling()
+            self.agent_bridge.start_monitoring()
+            self.chat_enabled = True
+            print("🚀 Chat system started!")
+            print("💬 Employees can now be mentioned in the Telegram group")
+            print("🔄 Task monitoring active")
+        except Exception as e:
+            print(f"❌ Failed to start chat system: {e}")
+
+    def handle_chat_stop(self, args):
+        """Handle chat-stop command"""
+        if not self.chat_enabled:
+            print("❌ Chat system is not running")
+            return
+        
+        self.telegram_manager.stop_polling()
+        self.chat_enabled = False
+        print("🛑 Chat system stopped")
+
+    def handle_chat_status(self, args):
+        """Handle chat-status command"""
+        from src.chat.chat_config import config
+        
+        print("📊 CHAT SYSTEM STATUS")
+        print("=" * 50)
+        
+        # Configuration status
+        print(f"🔧 Configuration: {'✅ Ready' if config.is_configured() else '❌ Not configured'}")
+        print(f"🤖 Bot Token: {'✅ Set' if config.bot_token else '❌ Missing'}")
+        print(f"💬 Chat ID: {'✅ Set' if config.chat_id else '❌ Missing'}")
+        
+        # Connection status
+        connected = self.telegram_manager.is_connected()
+        print(f"🌐 Connection: {'✅ Connected' if connected else '❌ Disconnected'}")
+        print(f"🔄 Polling: {'✅ Active' if self.chat_enabled else '❌ Stopped'}")
+        
+        # Agent statistics
+        stats = self.agent_manager.get_chat_statistics()
+        print(f"👥 Total Agents: {stats['total_agents']}")
+        print(f"🔥 Working: {stats['working_agents']}")
+        print(f"😴 Idle: {stats['idle_agents']}")
+        print(f"🆘 Stuck: {stats['stuck_agents']}")
+        print(f"📬 Pending Help Requests: {stats['pending_help_requests']}")
+
+    def handle_agents(self, args):
+        """Handle agents command - show communication agents status"""
+        agents_status = self.agent_manager.get_agent_status()
+        
+        if not agents_status:
+            print("❌ No communication agents found")
+            return
+        
+        print("👥 COMMUNICATION AGENTS STATUS")
+        print("=" * 50)
+        
+        for name, status in agents_status.items():
+            print(f"👤 {name} ({status['role']})")
+            print(f"   Status: {status['worker_status']}")
+            print(f"   Expertise: {', '.join(status['expertise'])}")
+            if status['current_task']:
+                print(f"   Current Task: {status['current_task'][:50]}...")
+            if status['active_tasks']:
+                print(f"   Active Tasks: {len(status['active_tasks'])}")
+            if status['last_response']:
+                print(f"   Last Response: {status['last_response']}")
+            print()
+
+    def handle_bridge(self, args):
+        """Handle bridge command - show agent bridge status"""
+        bridge_status = self.agent_bridge.get_bridge_status()
+        
+        print("🌉 AGENT BRIDGE STATUS")
+        print("=" * 50)
+        print(f"🔄 Active Tasks: {bridge_status['active_tasks']}")
+        print(f"⏰ Stuck Timers: {bridge_status['stuck_timers']}")
+        
+        if bridge_status['tasks']:
+            print("\n📋 CURRENT TASKS:")
+            for employee, task_info in bridge_status['tasks'].items():
+                print(f"👤 {employee}:")
+                print(f"   Task: {task_info['task']}")
+                print(f"   Status: {task_info['status']}")
+                print(f"   Duration: {task_info['duration_minutes']:.1f} minutes")
+                print()
+        else:
+            print("\n✅ No active tasks")
 
     def handle_employees(self, args):
         """Handle employees command"""
