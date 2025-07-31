@@ -1,0 +1,16 @@
+hire sarah developer
+hire dev-2 developer
+hire analyst-1 analyst
+employees
+lock sarah src/auth.py,src/user.py implement user authentication
+lock dev-2 src/api.py implement API endpoints
+lock analyst-1 docs/requirements.md analyze user requirements
+files
+request dev-2 src/auth.py need auth module for API integration
+files
+progress
+release sarah src/user.py
+files
+fire analyst-1
+employees
+quit
