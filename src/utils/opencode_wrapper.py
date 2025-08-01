@@ -188,7 +188,22 @@ class OpencodeSession:
         
         # If we found explicit files, prioritize those
         if files:
-            return list(set(files))
+            # Filter to only existing files
+            existing_files = []
+            for file_path in files:
+                if os.path.isabs(file_path):
+                    # Absolute path - check directly
+                    if os.path.exists(file_path):
+                        existing_files.append(file_path)
+                else:
+                    # Relative path - check relative to project root
+                    full_path = os.path.join(project_root, file_path)
+                    if os.path.exists(full_path):
+                        existing_files.append(file_path)
+            
+            if existing_files:
+                return list(set(existing_files))
+            # If no existing files found, continue with keyword-based analysis
         
         # Otherwise, fall back to keyword-based analysis
         # Authentication related
@@ -217,8 +232,14 @@ class OpencodeSession:
         
         # Default files if no specific patterns found
         if not files:
-            # Use project root relative paths
-            files = ["src/main.py", "src/app.py", "src/utils.py", "README.md"]
+            # Use project root relative paths (only existing files)
+            default_files = ["src/main.py", "README.md"]  # Only include files that exist
+            # Add other common files if they exist
+            for potential_file in ["src/client.py", "src/server.py", "src/config.py"]:
+                full_path = os.path.join(project_root, potential_file)
+                if os.path.exists(full_path):
+                    default_files.append(potential_file)
+            files = default_files
         
         # Remove duplicates and return
         return list(set(files))
@@ -461,8 +482,8 @@ REMEMBER:
 class OpencodeSessionManager:
     """Manages multiple opencode sessions for different employees"""
     
-    def __init__(self, db_path: str = "employees.db", sessions_dir: str = "sessions", quiet_mode: bool = False):
-        self.file_manager = FileOwnershipManager(db_path)
+    def __init__(self, file_manager: FileOwnershipManager, sessions_dir: str = "sessions", quiet_mode: bool = False):
+        self.file_manager = file_manager
         self.task_tracker = TaskProgressTracker(sessions_dir)
         self.active_sessions: Dict[str, OpencodeSession] = {}
         self.quiet_mode = quiet_mode

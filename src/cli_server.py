@@ -47,7 +47,7 @@ class CLIServer:
         setup_logging(cli_mode=True)
         
         self.file_manager = FileOwnershipManager(db_path)
-        self.session_manager = OpencodeSessionManager(db_path, sessions_dir, quiet_mode=True)
+        self.session_manager = OpencodeSessionManager(self.file_manager, sessions_dir, quiet_mode=True)
         self.task_tracker = self.session_manager.task_tracker  # Use the session manager's task tracker
         
         # Initialize chat system
