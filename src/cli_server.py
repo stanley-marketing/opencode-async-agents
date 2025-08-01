@@ -24,9 +24,25 @@ from src.utils.opencode_wrapper import OpencodeSessionManager
 from src.chat.telegram_manager import TelegramManager
 from src.agents.agent_manager import AgentManager
 from src.bridge.agent_bridge import AgentBridge
+from src.config.models_config import models_config
 
 class CLIServer:
     def __init__(self, db_path="employees.db", sessions_dir="sessions"):
+        # Load environment variables first
+        try:
+            from dotenv import load_dotenv
+            from pathlib import Path
+            env_path = Path(__file__).parent.parent / '.env'
+            if env_path.exists():
+                load_dotenv(env_path)
+                print(f"📄 Loaded .env from {env_path}")
+            else:
+                load_dotenv()  # Try current directory
+        except ImportError:
+            print("⚠️  Install python-dotenv: pip install python-dotenv")
+        except Exception as e:
+            print(f"⚠️  Could not load .env: {e}")
+        
         # Configure logging for CLI mode (no console output)
         setup_logging(cli_mode=True)
         
@@ -40,13 +56,38 @@ class CLIServer:
         self.agent_bridge = AgentBridge(self.session_manager, self.agent_manager)
         self.chat_enabled = False
         self.running = True
+        
         self.command_history_file = os.path.expanduser("~/.opencode_slack_history")
         self.load_history()
+        self._setup_autocomplete()
         print("=== opencode-slack CLI Server ===")
         print("Type 'help' for available commands")
         print("Use ↑/↓ arrows for command history")
+        print("Use TAB for command completion")
         print("Type 'quit' to exit")
         print()
+        
+        # Auto-start chat system if configured (after initial setup)
+        self._auto_start_chat_if_configured()
+    
+    def _auto_start_chat_if_configured(self):
+        """Auto-start chat system if properly configured"""
+        from src.chat.chat_config import config
+        
+        if config.is_configured():
+            try:
+                self.telegram_manager.start_polling()
+                self.agent_bridge.start_monitoring()
+                self.chat_enabled = True
+                print("🚀 Chat system auto-started!")
+                print(f"👥 {len(self.agent_manager.agents)} communication agents ready")
+                print("💬 Employees can now be mentioned in the Telegram group")
+            except Exception as e:
+                print(f"⚠️  Failed to auto-start chat system: {e}")
+                print("   Use 'chat-start' to start manually")
+        else:
+            print("💬 Chat system not configured (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)")
+            print("   See TELEGRAM_SETUP.md for setup instructions")
 
     def load_history(self):
         """Load command history from file"""
@@ -58,6 +99,220 @@ class CLIServer:
                 readline.read_history_file(self.command_history_file)
         except:
             pass
+
+    def _setup_autocomplete(self):
+        """Set up command autocompletion using readline"""
+        if not readline_available:
+            return
+            
+        # List of available commands for autocompletion
+        self.commands = [
+            'help', 'quit', 'exit', 'hire', 'fire', 'assign', 'start', 'stop',
+            'status', 'sessions', 'lock', 'release', 'request', 'approve',
+            'deny', 'progress', 'task', 'cleanup', 'chat', 'chat-start',
+            'chat-stop', 'chat-status', 'agents', 'bridge', 'employees',
+            'files', 'clear', 'history', 'models', 'model-set', 'hire-specialist'
+        ]
+        
+        # Set up readline completion
+        readline.set_completer(self._autocomplete)
+        readline.parse_and_bind("tab: complete")
+
+    def _autocomplete(self, text, state):
+        """Autocomplete function for readline"""
+        if state == 0:
+            # This is the first time calling autocomplete for this text
+            line = readline.get_line_buffer()
+            words = line.split()
+            
+            # Check if we're at the end of the line with a space
+            ends_with_space = line.endswith(' ')
+            
+            # If we're at the beginning of the line
+            if not words:
+                self.matches = self.commands[:]
+            elif len(words) == 1 and not ends_with_space:
+                # Autocomplete command names
+                self.matches = [cmd for cmd in self.commands if cmd.startswith(text)]
+            else:
+                # Autocomplete command arguments based on the command
+                command = words[0].lower()
+                self.matches = self._get_command_args_autocomplete(command, words, text, ends_with_space)
+        
+        # Return the match for the current state, or None if no more matches
+        try:
+            return self.matches[state]
+        except IndexError:
+            return None
+
+    def _get_command_args_autocomplete(self, command, words, text, ends_with_space=False):
+        """Get autocomplete suggestions for command arguments"""
+        try:
+            if command in ['hire']:
+                # hire <name> <role> [smartness]
+                if len(words) == 1 and ends_with_space:
+                    # After "hire " - need name
+                    return [text] if text else ['']
+                elif len(words) == 2 and not ends_with_space:
+                    # Typing name
+                    return [text] if text else ['']
+                elif (len(words) == 2 and ends_with_space) or (len(words) == 3 and not ends_with_space):
+                    # After "hire name " - need role
+                    roles = ['developer', 'analyst', 'pm', 'qa', 'devops', 'designer']
+                    if not text:
+                        return roles[:]
+                    else:
+                        return [role for role in roles if role.startswith(text)]
+                elif (len(words) == 3 and ends_with_space) or (len(words) == 4 and not ends_with_space):
+                    # After "hire name role " - need smartness
+                    smartness_levels = ['smart', 'normal']
+                    if not text:
+                        return smartness_levels[:]
+                    else:
+                        return [level for level in smartness_levels if level.startswith(text)]
+            elif command in ['fire', 'assign', 'start', 'stop', 'progress', 'task']:
+                # These commands need employee names
+                if len(words) == 1 and ends_with_space:
+                    # After "fire " - need employee name
+                    employees = self.file_manager.list_employees()
+                    employee_names = [emp['name'] for emp in employees]
+                    if not text:
+                        return employee_names[:]
+                    else:
+                        return [name for name in employee_names if name.startswith(text)]
+                elif len(words) == 2 and not ends_with_space:
+                    # Typing employee name
+                    employees = self.file_manager.list_employees()
+                    employee_names = [emp['name'] for emp in employees]
+                    if not text:
+                        return employee_names[:]
+                    else:
+                        return [name for name in employee_names if name.startswith(text)]
+            elif command in ['lock']:
+                # lock <name> <files> <desc>
+                if len(words) == 1 and ends_with_space:
+                    # After "lock " - need employee name
+                    employees = self.file_manager.list_employees()
+                    employee_names = [emp['name'] for emp in employees]
+                    if not text:
+                        return employee_names[:]
+                    else:
+                        return [name for name in employee_names if name.startswith(text)]
+                elif len(words) == 2 and not ends_with_space:
+                    # Typing employee name
+                    employees = self.file_manager.list_employees()
+                    employee_names = [emp['name'] for emp in employees]
+                    if not text:
+                        return employee_names[:]
+                    else:
+                        return [name for name in employee_names if name.startswith(text)]
+                elif len(words) == 2 and ends_with_space:
+                    # After "lock name " - need files
+                    common_files = [
+                        'src/main.py', 'src/utils.py', 'src/auth.py', 'src/user.py',
+                        'src/api.py', 'src/database.py', 'src/models.py', 'tests/test_main.py',
+                        'config/settings.py', 'docs/README.md'
+                    ]
+                    if not text:
+                        return common_files[:]
+                    else:
+                        return [f for f in common_files if f.startswith(text)]
+            elif command in ['release']:
+                # release <name> [files]
+                if len(words) == 1 and ends_with_space:
+                    # After "release " - need employee name
+                    employees = self.file_manager.list_employees()
+                    employee_names = [emp['name'] for emp in employees]
+                    if not text:
+                        return employee_names[:]
+                    else:
+                        return [name for name in employee_names if name.startswith(text)]
+                elif len(words) == 2 and not ends_with_space:
+                    # Typing employee name
+                    employees = self.file_manager.list_employees()
+                    employee_names = [emp['name'] for emp in employees]
+                    if not text:
+                        return employee_names[:]
+                    else:
+                        return [name for name in employee_names if name.startswith(text)]
+                elif len(words) == 2 and ends_with_space:
+                    # After "release name " - need files
+                    if len(words) > 1:
+                        employee_name = words[1]
+                        locked_files = self.file_manager.get_employee_files(employee_name)
+                        file_paths = [f['file_path'] for f in locked_files]
+                        if not text:
+                            return file_paths[:]
+                        else:
+                            return [f for f in file_paths if f.startswith(text)]
+            elif command in ['request']:
+                # request <name> <file> <desc>
+                if len(words) == 1 and ends_with_space:
+                    # After "request " - need requester name
+                    employees = self.file_manager.list_employees()
+                    employee_names = [emp['name'] for emp in employees]
+                    if not text:
+                        return employee_names[:]
+                    else:
+                        return [name for name in employee_names if name.startswith(text)]
+                elif len(words) == 2 and not ends_with_space:
+                    # Typing requester name
+                    employees = self.file_manager.list_employees()
+                    employee_names = [emp['name'] for emp in employees]
+                    if not text:
+                        return employee_names[:]
+                    else:
+                        return [name for name in employee_names if name.startswith(text)]
+                elif len(words) == 2 and ends_with_space:
+                    # After "request name " - need file
+                    common_files = [
+                        'src/main.py', 'src/utils.py', 'src/auth.py', 'src/user.py',
+                        'src/api.py', 'src/database.py', 'src/models.py'
+                    ]
+                    if not text:
+                        return common_files[:]
+                    else:
+                        return [f for f in common_files if f.startswith(text)]
+            elif command in ['approve', 'deny']:
+                # approve/deny <request_id>
+                if len(words) == 1 and ends_with_space:
+                    # After "approve " or "deny " - need request ID
+                    pending_requests = self.file_manager.get_pending_requests()
+                    request_ids = [str(req['id']) for req in pending_requests]
+                    if not text:
+                        return request_ids[:]
+                    else:
+                        return [req_id for req_id in request_ids if req_id.startswith(text)]
+                elif len(words) == 2 and not ends_with_space:
+                    # Typing request ID
+                    pending_requests = self.file_manager.get_pending_requests()
+                    request_ids = [str(req['id']) for req in pending_requests]
+                    if not text:
+                        return request_ids[:]
+                    else:
+                        return [req_id for req_id in request_ids if req_id.startswith(text)]
+            elif command in ['model-set']:
+                # model-set <level> <model>
+                if len(words) == 1 and ends_with_space:
+                    # After "model-set " - need level
+                    levels = ['smart', 'normal']
+                    if not text:
+                        return levels[:]
+                    else:
+                        return [level for level in levels if level.startswith(text)]
+                elif len(words) == 2 and not ends_with_space:
+                    # Typing level
+                    levels = ['smart', 'normal']
+                    if not text:
+                        return levels[:]
+                    else:
+                        return [level for level in levels if level.startswith(text)]
+        except Exception:
+            # If there's any error, return empty list to avoid breaking the CLI
+            pass
+            
+        # Default: return empty list for no specific autocomplete
+        return []
 
     def save_history(self):
         """Save command history to file"""
@@ -107,6 +362,8 @@ class CLIServer:
             print("Goodbye!")
         elif command == "hire":
             self.handle_hire(parts[1:])
+        elif command == "hire-specialist":
+            self.handle_hire_specialist(parts[1:])
         elif command == "fire":
             self.handle_fire(parts[1:])
         elif command == "assign":
@@ -155,6 +412,10 @@ class CLIServer:
             self.handle_clear(parts[1:])
         elif command == "history":
             self.handle_history(parts[1:])
+        elif command == "models":
+            self.handle_models(parts[1:])
+        elif command == "model-set":
+            self.handle_model_set(parts[1:])
         else:
             print(f"Unknown command: {command}")
             print("Type 'help' for available commands")
@@ -162,7 +423,8 @@ class CLIServer:
     def show_help(self):
         """Show available commands"""
         print("🔥 REAL OPENCODE EMPLOYEE SYSTEM - Available commands:")
-        print("  hire <name> <role>              - Hire a new employee")
+        print("  hire <name> <role> [smartness]  - Hire a new employee (smartness: smart|normal)")
+        print("  hire-specialist <category>      - Hire a specialized employee from a specific category")
         print("  fire <name>                     - Fire an employee")
         print("  assign <name> '<task>' [model]  - Assign REAL opencode task to employee")
         print("  start <name> '<task>' [model]  - Start employee working on task")
@@ -177,6 +439,8 @@ class CLIServer:
         print("  progress [name]                 - Show progress for employee (or all)")
         print("  task <name>                     - Show current task file for employee")
         print("  cleanup                         - Clean up completed sessions")
+        print("  models                          - Show configured models")
+        print("  model-set <level> <model>       - Set model for smartness level")
         print("")
         print("🔥 CHAT COMMANDS:")
         print("  chat <message>                  - Send message to Telegram group")
@@ -192,9 +456,17 @@ class CLIServer:
         print("  help                            - Show this help")
         print("  quit                            - Exit the server")
         print()
+        print("🤖 SMARTNESS LEVELS:")
+        print("  Employees can be hired with two smartness levels:")
+        print("    - smart: High-performance models for complex planning")
+        print("    - normal: Efficient models for code writing")
+        print("  Models are automatically selected based on employee's smartness level")
+        print()
         print("🚀 Examples:")
+        print("  hire sarah developer smart      - Hire smart developer")
         print("  assign sarah 'implement user authentication'")
         print("  assign dev-2 'create API endpoints' claude-3.5")
+        print("  model-set smart openrouter/anthropic/claude-3.5-sonnet")
         print("  status  # See complete system overview")
 
     def handle_assign(self, args):
@@ -206,7 +478,7 @@ class CLIServer:
         
         name = args[0]
         task_description = args[1]
-        model = args[2] if len(args) > 2 else "openrouter/qwen/qwen3-coder"
+        model = args[2] if len(args) > 2 else None  # Use employee's default model if not specified
         mode = args[3] if len(args) > 3 else "build"
         
         # Make sure employee exists
@@ -367,14 +639,21 @@ class CLIServer:
     def handle_hire(self, args):
         """Handle hire command"""
         if len(args) < 2:
-            print("Usage: hire <name> <role>")
+            print("Usage: hire <name> <role> [smartness]")
+            print("Smartness levels: smart | normal")
             return
         
         name = args[0]
-        role = " ".join(args[1:])
+        role = args[1]
+        smartness = args[2] if len(args) > 2 else "normal"  # default to normal
         
-        if self.file_manager.hire_employee(name, role):
-            print(f"✅ Successfully hired {name} as a {role}!")
+        # Validate smartness level
+        if smartness not in ["smart", "normal"]:
+            print("Invalid smartness level. Use 'smart' or 'normal'. Defaulting to 'normal'.")
+            smartness = "normal"
+        
+        if self.file_manager.hire_employee(name, role, smartness):
+            print(f"✅ Successfully hired {name} as a {role} ({smartness} smartness)!")
             
             # Create communication agent
             expertise = self.agent_manager._get_expertise_for_role(role)
@@ -728,6 +1007,99 @@ class CLIServer:
         print("Use ↑/↓ arrows for command history")
         print("Type 'quit' to exit")
         print()
+
+    def handle_models(self, args):
+        """Handle models command - show configured models"""
+        print("🤖 Configured AI Models:")
+        print("=" * 50)
+        
+        models = models_config.get_all_models()
+        for level, model_info in models.items():
+            print(f"  {level.capitalize()} Level:")
+            print(f"    Model: {model_info['name']}")
+            print(f"    Description: {model_info['description']}")
+            print(f"    Cost Level: {model_info['cost_level']}")
+            print()
+        
+        print("💡 Usage:")
+        print("  To set a model: model-set <level> <model_name>")
+        print("  Example: model-set smart openrouter/anthropic/claude-3.5-sonnet")
+
+    def handle_model_set(self, args):
+        """Handle model-set command - configure model for smartness level"""
+        if len(args) < 2:
+            print("Usage: model-set <level> <model_name>")
+            print("Example: model-set smart openrouter/anthropic/claude-3.5-sonnet")
+            return
+        
+        level = args[0]
+        model_name = args[1]
+        
+        # Validate level
+        if level not in ["smart", "normal"]:
+            print("Invalid level. Use 'smart' or 'normal'.")
+            return
+        
+        # Validate model (basic check)
+        if not model_name:
+            print("Model name cannot be empty.")
+            return
+        
+        # Update configuration
+        description = f"{'High-performance' if level == 'smart' else 'Efficient'} model for {'complex planning and analysis' if level == 'smart' else 'code writing and execution'}"
+        cost_level = "high" if level == "smart" else "low"
+        
+        models_config.update_model(level, model_name, description, cost_level)
+        print(f"✅ Updated {level} model to: {model_name}")
+
+    def handle_hire_specialist(self, args):
+        """Handle hire-specialist command - hire a specialized employee from a specific category"""
+        from pathlib import Path
+        
+        # Path to employee types directory
+        employee_types_dir = Path(__file__).parent.parent / ".bmad-core" / "employee-types"
+        
+        if not employee_types_dir.exists():
+            print("❌ Employee types directory not found!")
+            return
+        
+        if len(args) < 1:
+            # List available categories
+            print("Available Employee Categories:")
+            print("=" * 40)
+            categories = [d.name for d in employee_types_dir.iterdir() if d.is_dir()]
+            for i, category in enumerate(categories, 1):
+                print(f"  {i}. {category.replace('-', ' ').title()}")
+            print("\nUsage: hire-specialist <category>")
+            print("Example: hire-specialist engineering")
+            return
+        
+        category = args[0].lower().replace(" ", "-")
+        category_dir = employee_types_dir / category
+        
+        if not category_dir.exists():
+            print(f"❌ Category '{category}' not found!")
+            print("\nAvailable categories:")
+            categories = [d.name for d in employee_types_dir.iterdir() if d.is_dir()]
+            for cat in categories:
+                print(f"  - {cat.replace('-', ' ').title()}")
+            return
+        
+        # List available employee types in this category
+        employee_types = [f.stem for f in category_dir.iterdir() if f.suffix == ".md"]
+        
+        if not employee_types:
+            print(f"❌ No employee types found in category '{category}'!")
+            return
+        
+        print(f"Available {category.replace('-', ' ').title()} Specialists:")
+        print("=" * 50)
+        for i, emp_type in enumerate(employee_types, 1):
+            name = emp_type.replace("-", " ").title()
+            print(f"  {i}. {name}")
+        
+        print("\nUsage: hire <name> <specialty> [smartness]")
+        print("Example: hire john frontend-developer smart")
 
 def main():
     """Main function"""

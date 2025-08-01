@@ -10,6 +10,8 @@ from datetime import datetime
 from .base_communication_agent import BaseCommunicationAgent
 from src.chat.message_parser import ParsedMessage, MessageParser
 from src.chat.chat_config import config
+from .react_agent import ReActAgent
+from .memory_manager import MemoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +27,27 @@ class CommunicationAgent(BaseCommunicationAgent):
         self.current_task = None
         self.task_progress = ""
         
+        # Initialize memory manager for short-term memory
+        try:
+            self.memory_manager = MemoryManager(employee_name)
+            logger.info(f"Memory manager initialized for {employee_name}")
+        except Exception as e:
+            logger.warning(f"Failed to initialize memory manager for {employee_name}: {e}")
+            self.memory_manager = None
+        
+        # Initialize ReAct agent for intelligent conversations
+        try:
+            self.react_agent = ReActAgent(
+                employee_name=employee_name,
+                role=role,
+                expertise=expertise or [],
+                memory_manager=self.memory_manager
+            )
+            logger.info(f"ReAct agent initialized for {employee_name}")
+        except Exception as e:
+            logger.warning(f"Failed to initialize ReAct agent for {employee_name}: {e}")
+            self.react_agent = None
+        
         # Callbacks for worker agent integration
         self.on_task_assigned = None
         self.on_help_received = None
@@ -32,6 +55,16 @@ class CommunicationAgent(BaseCommunicationAgent):
     def handle_mention(self, message: ParsedMessage) -> Optional[str]:
         """Handle when this agent is mentioned"""
         self._add_recent_message(message)
+        
+        # Store conversation in memory
+        if self.memory_manager:
+            self.memory_manager.add_conversation(message.sender, message.text)
+        
+        # Check if it's asking for explanation or clarification (should be handled by ReAct agent)
+        text_lower = message.text.lower()
+        if any(keyword in text_lower for keyword in ['explain', 'what does', 'what mean', 'clarify', 'what is']):
+            # Let the ReAct agent handle explanation requests
+            return self._handle_general_mention(message)
         
         # Check if it's a task assignment
         if self.message_parser.is_task_assignment(message.text, message.mentions):
@@ -47,6 +80,10 @@ class CommunicationAgent(BaseCommunicationAgent):
     def handle_general_message(self, message: ParsedMessage) -> Optional[str]:
         """Handle general messages (decide whether to respond)"""
         self._add_recent_message(message)
+        
+        # Store conversation in memory
+        if self.memory_manager:
+            self.memory_manager.add_conversation(message.sender, message.text)
         
         # Check if we should offer help
         if self.should_offer_help(message):
@@ -102,20 +139,77 @@ class CommunicationAgent(BaseCommunicationAgent):
         else:
             self._record_response()
             return "I'm not sure I can help with that, but let me think about it."
-    
-    def _handle_general_mention(self, message: ParsedMessage) -> str:
-        """Handle a general mention (not task assignment or help request)"""
-        responses = [
-            "Yes?",
-            "How can I help?",
-            "What's up?",
-            "I'm here.",
-        ]
         
-        import random
-        self._record_response()
-        return random.choice(responses)
-    
+    def _handle_general_mention(self, message: ParsedMessage) -> str:
+            """Handle a general mention (not task assignment or help request)"""
+            # Use ReAct agent for intelligent conversation if available
+            if self.react_agent:
+                try:
+                    # Create context for the conversation
+                    context = {
+                        "sender": message.sender,
+                        "timestamp": message.timestamp.isoformat() if message.timestamp else "unknown",
+                        "chat_type": "general_mention"
+                    }
+                    
+                    # Get intelligent response from ReAct agent
+                    response = self.react_agent.handle_message(message.text, context)
+                    self._record_response()
+                    return response
+                except Exception as e:
+                    logger.warning(f"ReAct agent failed for {self.employee_name}: {e}")
+                    # Fall back to simple responses
+                    pass
+            
+            # Fallback to simple responses if ReAct agent fails
+            text_lower = message.text.lower()
+            
+            # Check for common conversational patterns
+            if "how are you" in text_lower or "how are u" in text_lower:
+                responses = [
+                    "I'm doing great! Just finished reviewing some code. How are you doing today?",
+                    "I'm here and ready to help! Had a productive morning working on tasks. How can I assist you?",
+                    "Feeling energized and ready to tackle challenges! What's on your mind?"
+                ]
+            elif "hello" in text_lower or "hi " in text_lower or "hey" in text_lower:
+                responses = [
+                    "Hello there! What can I help you with today?",
+                    "Hi! I'm excited to work on something. Got any interesting tasks for me?",
+                    "Hey! I'm here and ready to be productive. What's up?"
+                ]
+            elif "good morning" in text_lower:
+                responses = [
+                    "Good morning! I'm ready to start the day with some coding. What's first on the agenda?",
+                    "Morning! I've been reviewing our project status and I'm pumped to get started!"
+                ]
+            elif "good evening" in text_lower:
+                responses = [
+                    "Good evening! How was your day? I've been making good progress on my tasks.",
+                    "Evening! I'm still here and ready to help if you need anything."
+                ]
+            elif "bye" in text_lower or "goodbye" in text_lower:
+                responses = [
+                    "See you later! Let me know if you need anything before you go.",
+                    "Goodbye! I'll keep working on my current tasks. Catch you tomorrow!",
+                    "Bye! Feel free to ping me if you think of anything else."
+                ]
+            else:
+                # General purpose responses
+                responses = [
+                    "Hey! I'm here and ready to help. What can I do for you?",
+                    "Hi there! I'm always excited to collaborate. What's on your mind?",
+                    "Hello! I've been working on some interesting stuff. How can I assist you?",
+                    "I'm all ears! What do you need help with?",
+                    "Right here! I'm ready to jump on whatever you need. What's up?",
+                    "Hey! I was just thinking about how to improve our workflow. What can I help with?",
+                    "Hi! I'm here and eager to contribute. What's the plan?",
+                    "Good to hear from you! What can I tackle for you today?"
+                ]
+            
+            import random
+            self._record_response()
+            return random.choice(responses)
+
     def _offer_help(self, message: ParsedMessage) -> Optional[str]:
         """Offer help on a message"""
         
@@ -131,10 +225,42 @@ class CommunicationAgent(BaseCommunicationAgent):
             return self.format_help_offer(suggestion)
         
         return None
-    
+
     def _respond_to_general_discussion(self, message: ParsedMessage) -> Optional[str]:
         """Respond to general discussion if relevant"""
         
+        # Use ReAct agent for intelligent discussion participation
+        if self.react_agent and self._has_valuable_input(message):
+            try:
+                # Create context for the discussion
+                context = {
+                    "sender": message.sender,
+                    "timestamp": message.timestamp.isoformat() if message.timestamp else "unknown",
+                    "chat_type": "general_discussion",
+                    "recent_messages": [
+                        {
+                            "sender": msg.sender,
+                            "text": msg.text[:100] + "..." if len(msg.text) > 100 else msg.text,
+                            "timestamp": msg.timestamp.isoformat() if msg.timestamp else "unknown"
+                        }
+                        for msg in list(self.recent_messages)[-5:]  # Last 5 messages for context
+                    ]
+                }
+                
+                # Get intelligent response from ReAct agent
+                response = self.react_agent.handle_message(
+                    f"General discussion in progress. Message from {message.sender}: {message.text}", 
+                    context
+                )
+                
+                # Only respond if we have something meaningful to add
+                if response and len(response.strip()) > 10:  # At least 10 characters
+                    self._record_response()
+                    return response
+            except Exception as e:
+                logger.warning(f"ReAct agent discussion response failed for {self.employee_name}: {e}")
+        
+        # Fall back to simple responses for general discussion
         # Only respond if we have something valuable to add
         if not self._has_valuable_input(message):
             return None
@@ -146,7 +272,7 @@ class CommunicationAgent(BaseCommunicationAgent):
             return response
         
         return None
-    
+
     def _analyze_help_topic(self, text: str) -> Optional[str]:
         """Analyze what topic help is needed for"""
         text_lower = text.lower()
@@ -167,7 +293,7 @@ class CommunicationAgent(BaseCommunicationAgent):
                 return topic
         
         return None
-    
+
     def _generate_help_suggestion(self, topic: str, context: str) -> Optional[str]:
         """Generate a helpful suggestion based on topic and context"""
         
@@ -216,7 +342,7 @@ class CommunicationAgent(BaseCommunicationAgent):
             return random.choice(topic_suggestions)
         
         return None
-    
+
     def _has_valuable_input(self, message: ParsedMessage) -> bool:
         """Check if agent has valuable input for general discussion"""
         
@@ -232,7 +358,7 @@ class CommunicationAgent(BaseCommunicationAgent):
         )
         
         return not recent_help
-    
+
     def _generate_discussion_response(self, message: ParsedMessage) -> Optional[str]:
         """Generate a response to general discussion"""
         
@@ -247,9 +373,9 @@ class CommunicationAgent(BaseCommunicationAgent):
         
         import random
         return random.choice(responses)
-    
+
     # Worker agent integration methods
-    
+
     def notify_worker_stuck(self, task: str, progress: str, issue: str = ""):
         """Called when worker agent gets stuck"""
         self.worker_status = "stuck"
@@ -258,7 +384,7 @@ class CommunicationAgent(BaseCommunicationAgent):
         # Request help from team
         help_message = self.format_help_request(task, progress, issue)
         return help_message
-    
+
     def notify_worker_completed(self, task: str):
         """Called when worker agent completes a task"""
         self.worker_status = "completed"
@@ -270,7 +396,7 @@ class CommunicationAgent(BaseCommunicationAgent):
         # Announce completion
         completion_message = self.format_completion(task)
         return completion_message
-    
+
     def provide_help_to_worker(self, help_messages: list) -> str:
         """Provide collected help messages to worker agent"""
         
@@ -290,7 +416,7 @@ class CommunicationAgent(BaseCommunicationAgent):
                 logger.error(f"Error providing help to worker: {e}")
         
         return help_summary
-    
+
     def get_status(self) -> Dict[str, Any]:
         """Get current agent status"""
         return {

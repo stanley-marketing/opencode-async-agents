@@ -92,34 +92,50 @@ class AgentManager:
         
         # Skip messages from our own bots
         if message.sender.endswith('-bot'):
+            logger.debug(f"Skipping message from bot: {message.sender}")
             return
         
         logger.info(f"Processing message from {message.sender}: {message.text[:50]}...")
+        logger.debug(f"Available agents: {list(self.agents.keys())}")
+        logger.debug(f"Message mentions: {message.mentions}")
         
         # Handle mentions first
         responses = []
         for mentioned_employee in message.mentions:
+            logger.debug(f"Processing mention for: {mentioned_employee}")
             if mentioned_employee in self.agents:
                 agent = self.agents[mentioned_employee]
+                logger.info(f"Found agent for {mentioned_employee}, handling mention")
                 response = agent.handle_mention(message)
                 if response:
+                    logger.info(f"Agent {mentioned_employee} generated response: {response[:100]}")
                     responses.append((mentioned_employee, response))
+                else:
+                    logger.warning(f"Agent {mentioned_employee} returned no response")
+            else:
+                logger.warning(f"No agent found for mentioned employee: {mentioned_employee}")
         
         # If no mentions, let agents decide if they want to respond
         if not message.mentions:
+            logger.debug("No mentions found, checking for general responses")
             for employee_name, agent in self.agents.items():
                 response = agent.handle_general_message(message)
                 if response:
+                    logger.info(f"Agent {employee_name} wants to respond to general message")
                     responses.append((employee_name, response))
                     break  # Only one agent responds to general messages
         
         # Send responses
+        logger.info(f"Sending {len(responses)} responses")
         for employee_name, response in responses:
             success = self.telegram_manager.send_message(response, employee_name, message.message_id)
             if success:
                 logger.info(f"Agent {employee_name} responded to message")
             else:
                 logger.error(f"Failed to send response from {employee_name}")
+        
+        if not responses:
+            logger.info("No responses generated for this message")
     
     def _handle_task_assignment(self, employee_name: str, task: str):
         """Handle task assignment to worker agent"""

@@ -4,15 +4,19 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Optional
 import json
+from pathlib import Path
 
 # Set up logging
 from src.config.logging_config import logger
+from src.config.config import Config
 
 class FileOwnershipManager:
     def __init__(self, db_path: str = "employees.db"):
         self.db_path = db_path
+        self.project_root = Path(Config.PROJECT_ROOT).resolve()
         self.init_database()
         logger.info(f"FileOwnershipManager initialized with database: {db_path}")
+        logger.info(f"Project root directory: {self.project_root}")
     
     def init_database(self):
         """Initialize the database with required tables"""
@@ -25,6 +29,7 @@ class FileOwnershipManager:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE NOT NULL,
                 role TEXT NOT NULL,
+                smartness TEXT DEFAULT 'normal', -- smart | normal
                 hired_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
@@ -67,20 +72,24 @@ class FileOwnershipManager:
         conn.commit()
         conn.close()
     
-    def hire_employee(self, name: str, role: str) -> bool:
+    def hire_employee(self, name: str, role: str, smartness: str = "normal") -> bool:
         """Hire a new employee"""
-        logger.info(f"Attempting to hire employee: {name} as {role}")
+        logger.info(f"Attempting to hire employee: {name} as {role} with {smartness} smartness")
+        
+        # Validate smartness level
+        if smartness not in ["smart", "normal"]:
+            smartness = "normal"
         
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         try:
             cursor.execute(
-                "INSERT INTO employees (name, role) VALUES (?, ?)",
-                (name, role)
+                "INSERT INTO employees (name, role, smartness) VALUES (?, ?, ?)",
+                (name, role, smartness)
             )
             conn.commit()
-            logger.info(f"Successfully hired employee: {name}")
+            logger.info(f"Successfully hired employee: {name} as {role} with {smartness} smartness")
             return True
         except sqlite3.IntegrityError:
             logger.warning(f"Employee {name} already exists")
@@ -129,12 +138,16 @@ class FileOwnershipManager:
         """Lock files for an employee. Returns dict of {file_path: status}"""
         logger.info(f"Employee {employee_name} attempting to lock files: {file_paths}")
         
+        # Resolve file paths relative to project root
+        resolved_file_paths = [self._resolve_file_path(fp) for fp in file_paths]
+        logger.info(f"Resolved file paths: {resolved_file_paths}")
+        
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         result = {}
         
-        for file_path in file_paths:
+        for original_path, file_path in zip(file_paths, resolved_file_paths):
             # Check if file is already locked
             cursor.execute(
                 "SELECT employee_name FROM file_locks WHERE file_path = ? AND status = 'locked'",
@@ -146,9 +159,9 @@ class FileOwnershipManager:
                 # File is already locked by someone else
                 locked_by = existing_lock[0]
                 if locked_by == employee_name:
-                    result[file_path] = "already_locked"
+                    result[original_path] = "already_locked"
                 else:
-                    result[file_path] = f"locked_by_{locked_by}"
+                    result[original_path] = f"locked_by_{locked_by}"
                     logger.info(f"File {file_path} already locked by {locked_by}")
             else:
                 # Lock the file
@@ -156,7 +169,7 @@ class FileOwnershipManager:
                     "INSERT INTO file_locks (file_path, employee_name, task_description) VALUES (?, ?, ?)",
                     (file_path, employee_name, task_description)
                 )
-                result[file_path] = "locked"
+                result[original_path] = "locked"
                 logger.info(f"File {file_path} locked by {employee_name}")
         
         conn.commit()
@@ -181,14 +194,18 @@ class FileOwnershipManager:
             logger.info(f"Released all files for {employee_name}")
             return []
         
+        # Resolve file paths relative to project root
+        resolved_file_paths = [self._resolve_file_path(fp) for fp in file_paths]
+        logger.info(f"Resolved file paths for release: {resolved_file_paths}")
+        
         released = []
-        for file_path in file_paths:
+        for original_path, file_path in zip(file_paths, resolved_file_paths):
             cursor.execute(
                 "UPDATE file_locks SET status = 'released' WHERE file_path = ? AND employee_name = ? AND status = 'locked'",
                 (file_path, employee_name)
             )
             if cursor.rowcount > 0:
-                released.append(file_path)
+                released.append(original_path)
                 logger.info(f"Released file {file_path} for {employee_name}")
         
         conn.commit()
@@ -197,12 +214,15 @@ class FileOwnershipManager:
     
     def get_file_owner(self, file_path: str) -> Optional[str]:
         """Get the owner of a locked file"""
+        # Resolve file path relative to project root
+        resolved_path = self._resolve_file_path(file_path)
+        
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute(
             "SELECT employee_name FROM file_locks WHERE file_path = ? AND status = 'locked'",
-            (file_path,)
+            (resolved_path,)
         )
         result = cursor.fetchone()
         
@@ -212,6 +232,52 @@ class FileOwnershipManager:
             return result[0]
         return None
     
+    def get_employee_info(self, employee_name: str) -> Optional[Dict]:
+        """Get employee information including smartness level"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT name, role, smartness, hired_at
+            FROM employees 
+            WHERE name = ?
+        """, (employee_name,))
+        
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            return {
+                'name': row[0],
+                'role': row[1],
+                'smartness': row[2],
+                'hired_at': row[3]
+            }
+        return None
+
+    def get_employee_info(self, employee_name: str) -> Optional[Dict]:
+        """Get employee information including smartness level"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT name, role, smartness, hired_at
+            FROM employees 
+            WHERE name = ?
+        """, (employee_name,))
+        
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row:
+            return {
+                'name': row[0],
+                'role': row[1],
+                'smartness': row[2],
+                'hired_at': row[3]
+            }
+        return None
+
     def get_employee_files(self, employee_name: str) -> List[Dict]:
         """Get all files locked by an employee"""
         conn = sqlite3.connect(self.db_path)
@@ -225,8 +291,16 @@ class FileOwnershipManager:
         
         files = []
         for row in cursor.fetchall():
+            file_path = row[0]
+            # Convert to relative path for display
+            try:
+                relative_path = os.path.relpath(file_path, self.project_root)
+            except ValueError:
+                # If we can't make it relative, use the full path
+                relative_path = file_path
+                
             files.append({
-                'file_path': row[0],
+                'file_path': relative_path,
                 'task_description': row[1],
                 'locked_at': row[2]
             })
@@ -239,14 +313,15 @@ class FileOwnershipManager:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        cursor.execute("SELECT name, role, hired_at FROM employees ORDER BY name")
+        cursor.execute("SELECT name, role, smartness, hired_at FROM employees ORDER BY name")
         
         employees = []
         for row in cursor.fetchall():
             employees.append({
                 'name': row[0],
                 'role': row[1],
-                'hired_at': row[2]
+                'smartness': row[2],
+                'hired_at': row[3]
             })
         
         conn.close()
@@ -254,9 +329,11 @@ class FileOwnershipManager:
     
     def request_file(self, requester: str, file_path: str, reason: str) -> str:
         """Request a file from another employee"""
-        logger.info(f"Employee {requester} requesting file {file_path}: {reason}")
+        # Resolve file path relative to project root
+        resolved_path = self._resolve_file_path(file_path)
+        logger.info(f"Employee {requester} requesting file {file_path} (resolved: {resolved_path}): {reason}")
         
-        owner = self.get_file_owner(file_path)
+        owner = self.get_file_owner(file_path)  # This will use the resolved path internally
         if not owner:
             return "file_not_locked"
         
@@ -346,15 +423,22 @@ class FileOwnershipManager:
             file_path = row[0]
             progress = task_progress_tracker.get_task_progress(employee_name)
             if progress and file_path in progress.get('ready_to_release', []):
-                ready_files.append(file_path)
+                # Convert back to relative path for return value
+                try:
+                    relative_path = os.path.relpath(file_path, self.project_root)
+                    ready_files.append(relative_path)
+                except ValueError:
+                    # If we can't make it relative, return the full path
+                    ready_files.append(file_path)
         
         # Release ready files
         for file_path in ready_files:
+            resolved_path = self._resolve_file_path(file_path)
             cursor.execute(
                 "UPDATE file_locks SET status = 'released' WHERE file_path = ? AND employee_name = ? AND status = 'locked'",
-                (file_path, employee_name)
+                (resolved_path, employee_name)
             )
-            logger.info(f"Released ready file {file_path} for {employee_name}")
+            logger.info(f"Released ready file {resolved_path} for {employee_name}")
         
         conn.commit()
         conn.close()
@@ -380,17 +464,18 @@ class FileOwnershipManager:
             return False
         
         file_path, requester, owner = request
+        resolved_path = self._resolve_file_path(file_path)
         
         # Release file from current owner
         cursor.execute(
             "UPDATE file_locks SET status = 'released' WHERE file_path = ? AND employee_name = ? AND status = 'locked'",
-            (file_path, owner)
+            (resolved_path, owner)
         )
         
         # Lock file for requester
         cursor.execute(
             "INSERT INTO file_locks (file_path, employee_name, task_description, status) VALUES (?, ?, ?, 'locked')",
-            (file_path, requester, f"Approved request #{request_id}")
+            (resolved_path, requester, f"Approved request #{request_id}")
         )
         
         # Update request status
@@ -443,8 +528,16 @@ class FileOwnershipManager:
         
         files = []
         for row in cursor.fetchall():
+            file_path = row[0]
+            # Convert to relative path for display
+            try:
+                relative_path = os.path.relpath(file_path, self.project_root)
+            except ValueError:
+                # If we can't make it relative, use the full path
+                relative_path = file_path
+                
             files.append({
-                'file_path': row[0],
+                'file_path': relative_path,
                 'employee_name': row[1],
                 'task_description': row[2],
                 'locked_at': row[3]
@@ -452,3 +545,37 @@ class FileOwnershipManager:
         
         conn.close()
         return files
+    
+    def set_project_root(self, project_root: str) -> bool:
+        """Set the project root directory"""
+        try:
+            # Validate and resolve the path
+            root_path = Path(project_root).resolve()
+            
+            # Ensure directory exists
+            root_path.mkdir(parents=True, exist_ok=True)
+            
+            # Update configuration
+            self.project_root = root_path
+            
+            # Update environment variable for persistence
+            os.environ['PROJECT_ROOT'] = str(root_path)
+            
+            logger.info(f"Project root directory updated to: {root_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to set project root directory: {e}")
+            return False
+    
+    def get_project_root(self) -> str:
+        """Get the current project root directory"""
+        return str(self.project_root)
+    
+    def _resolve_file_path(self, file_path: str) -> str:
+        """Resolve a file path relative to the project root"""
+        # If file_path is already absolute, return as is
+        if os.path.isabs(file_path):
+            return file_path
+        
+        # Otherwise, resolve relative to project root
+        return str(self.project_root / file_path)

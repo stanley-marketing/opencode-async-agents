@@ -61,6 +61,7 @@ commands:
   - document-project: execute the task document-project.md
   - execute-checklist {checklist}: Run task execute-checklist (no checklist = ONLY show available checklists listed under dependencies/checklist below)
   - shard-doc {document} {destination}: run the task shard-doc against the optionally provided document to the specified destination
+  - hire {employee-type}: Hire a specialized employee from available types (use without argument to see options)
   - yolo: Toggle Yolo Mode
   - exit: Exit (confirm)
 
@@ -77,6 +78,7 @@ dependencies:
     - create-next-story.md
     - execute-checklist.md
     - generate-ai-frontend-prompt.md
+    - hire-employee.md
     - index-docs.md
     - shard-doc.md
   templates:

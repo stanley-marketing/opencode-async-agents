@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config.config import Config
 from managers.file_ownership import FileOwnershipManager
 from trackers.task_progress import TaskProgressTracker
+from config.models_config import models_config
 
 class OpencodeSession:
     """Manages a real opencode session for an employee"""
@@ -32,7 +33,6 @@ class OpencodeSession:
         self.task_description = task_description
         self.file_manager = file_manager
         self.task_tracker = task_tracker
-        self.model = model
         self.mode = mode
         self.quiet_mode = quiet_mode  # Suppress console output in CLI mode
         self.session_id = f"{employee_name}_{int(time.time())}"
@@ -44,6 +44,20 @@ class OpencodeSession:
         self.session_dir = Path("sessions") / employee_name
         self.session_dir.mkdir(parents=True, exist_ok=True)
         self.output_buffer = []  # Buffer output for quiet mode
+        self.project_root = file_manager.get_project_root()
+        
+        # Determine model to use
+        if model is None:
+            # Get employee's smartness level from database
+            employee_info = file_manager.get_employee_info(employee_name)
+            if employee_info and 'smartness' in employee_info:
+                smartness_level = employee_info['smartness']
+                self.model = models_config.get_model_for_level(smartness_level)
+            else:
+                # Default to normal model
+                self.model = models_config.get_model_for_level("normal")
+        else:
+            self.model = model
     
     def _print(self, message: str):
         """Print message respecting quiet mode"""
@@ -145,6 +159,9 @@ class OpencodeSession:
         files = []
         task_lower = self.task_description.lower()
         
+        # Get project root from file manager
+        project_root = self.file_manager.get_project_root()
+        
         # First, look for explicit file paths in the task description
         # Match patterns like /path/to/file.ext or ./file.ext or file.ext
         file_patterns = [
@@ -157,9 +174,17 @@ class OpencodeSession:
             matches = re.findall(pattern, self.task_description)
             for match in matches:
                 # Check if the file actually exists
-                if os.path.exists(match):
-                    files.append(match)
-                    self._print(f"   📄 Found existing file in task: {match}")
+                if os.path.isabs(match):
+                    # Absolute path - check directly
+                    if os.path.exists(match):
+                        files.append(match)
+                        self._print(f"   📄 Found existing file in task: {match}")
+                else:
+                    # Relative path - check relative to project root
+                    full_path = os.path.join(project_root, match)
+                    if os.path.exists(full_path):
+                        files.append(match)  # Keep relative path
+                        self._print(f"   📄 Found existing file in task: {match} (resolved to {full_path})")
         
         # If we found explicit files, prioritize those
         if files:
@@ -192,6 +217,7 @@ class OpencodeSession:
         
         # Default files if no specific patterns found
         if not files:
+            # Use project root relative paths
             files = ["src/main.py", "src/app.py", "src/utils.py", "README.md"]
         
         # Remove duplicates and return

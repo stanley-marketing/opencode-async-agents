@@ -6,6 +6,15 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Telegram](https://img.shields.io/badge/Chat-Telegram-blue.svg)](https://telegram.org/)
 
+## 🏗️ **New Server-Client Architecture**
+
+OpenCode-Slack now features a **modern server-client architecture** similar to Redis, PostgreSQL, and other enterprise systems:
+
+- 🖥️ **Standalone Server** - Runs the complete AI employee system
+- 💻 **CLI Client** - Connects to server from anywhere
+- 🌐 **REST API** - Full HTTP API for integration
+- 🔄 **Real-time Updates** - Live status and progress monitoring
+
 ## 🌟 What Makes This Special?
 
 Imagine having a team of AI developers who:
@@ -78,20 +87,42 @@ pip install -r requirements.txt
 # Follow the detailed guide
 cat TELEGRAM_SETUP.md
 
-# Set environment variables
-export TELEGRAM_BOT_TOKEN="your_bot_token"
-export TELEGRAM_CHAT_ID="your_chat_id"
+# Set environment variables in .env file
+echo "TELEGRAM_BOT_TOKEN=your_bot_token" >> .env
+echo "TELEGRAM_CHAT_ID=your_chat_id" >> .env
 ```
 
-### 3. **Start the System**
+### 3. **Start the Server**
 ```bash
-# Launch the interactive CLI
-python3 src/cli_server.py
+# Option A: Using the launcher script
+./scripts/run.sh server
 
-# In the CLI:
-chat-start                    # Start Telegram integration
+# Option B: Direct Python execution
+python3 -m src.server
+
+# Option C: Custom host/port
+./scripts/run.sh server --host 0.0.0.0 --port 9000
+```
+
+### 4. **Connect with CLI Client**
+```bash
+# In a new terminal - connect to local server
+./scripts/run.sh client
+
+# Connect to remote server
+./scripts/run.sh client --server http://remote-server:8080
+
+# Direct Python execution
+python3 -m src.client --server http://localhost:8080
+```
+
+### 5. **Start Working!**
+```bash
+# In the CLI client:
 hire elad FS-developer        # Hire your first employee
 hire sarah designer           # Hire more team members
+assign elad "add gradient to HTML file"
+status                        # Check progress
 ```
 
 ### 4. **Start Working!**
@@ -153,13 +184,50 @@ sarah-bot: ✅ Responsive design implemented successfully!
 
 ## 🎮 **Advanced Usage**
 
-### **CLI Commands Reference**
-
-#### **👥 Employee Management**
+### **Server Management**
 ```bash
+# Start server with options
+./run.sh server --host 0.0.0.0 --port 8080
+./run.sh server --db-path /custom/path/employees.db
+
+# Server runs with REST API at:
+# http://localhost:8080/health      - Health check
+# http://localhost:8080/employees   - Employee management
+# http://localhost:8080/tasks       - Task assignment
+# http://localhost:8080/status      - System status
+```
+
+### **CLI Client Commands**
+```bash
+# Connect to server
+./run.sh client --server http://localhost:8080
+
+# All commands work the same as before:
 hire <name> <role>              # Hire new AI employee
-fire <name>                     # Fire employee (releases all files)
-employees                       # List all employees and status
+fire <name>                     # Fire employee
+assign <name> "task"            # Assign task to employee
+status                          # Show system overview
+chat-start                      # Start Telegram integration
+health                          # Check server health
+```
+
+### **REST API Usage**
+```bash
+# Health check
+curl http://localhost:8080/health
+
+# Hire employee
+curl -X POST http://localhost:8080/employees \
+  -H "Content-Type: application/json" \
+  -d '{"name": "alice", "role": "developer"}'
+
+# Assign task
+curl -X POST http://localhost:8080/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"name": "alice", "task": "implement authentication"}'
+
+# Get system status
+curl http://localhost:8080/status
 ```
 
 #### **💬 Chat System**
@@ -181,6 +249,20 @@ sessions                        # Show active work sessions
 task <name>                     # View employee's task file
 progress <name>                 # Show detailed progress
 ```
+
+#### **🤖 Smartness Levels**
+```bash
+hire <name> <role> [smartness]  # Hire employee with smartness level (smart|normal)
+models                          # Show configured AI models
+model-set <level> <model>       # Set model for smartness level
+```
+
+Employees can be hired with two smartness levels:
+- **smart**: High-performance models for complex planning and analysis
+- **normal**: Efficient models for code writing and execution
+
+When assigning tasks, employees automatically use their configured smartness level model.
+You can override this per-task by specifying a model: `assign <name> "task" <model>`
 
 #### **🔒 File Management**
 ```bash
@@ -283,7 +365,7 @@ tracker.get_task_progress("elad")
 ### **Comprehensive Test Suite**
 ```bash
 # Test all components
-python3 test_telegram_integration.py
+python3 scripts/test/test_telegram_integration.py
 
 # Test specific systems
 python -m pytest tests/test_file_ownership.py -v
@@ -437,16 +519,44 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🚀 **Ready to Build Your AI Team?**
 
+### **Quick Start (Server-Client)**
 ```bash
 git clone https://github.com/your-repo/opencode-slack
 cd opencode-slack
 pip install -r requirements.txt
+
+# Terminal 1: Start server
+./scripts/run.sh server
+
+# Terminal 2: Connect client
+./scripts/run.sh client
+```
+
+### **Quick Start (Legacy CLI)**
+```bash
+# Single terminal mode (legacy)
 python3 src/cli_server.py
 ```
 
-**Start with:** `chat-start` → `hire elad FS-developer` → `@elad create something amazing!`
+**Start with:** `hire elad FS-developer` → `assign elad "create something amazing!"` → `@elad` in Telegram
 
 **Join the revolution of AI-powered development teams!** 🎉
+
+## 🧪 **Testing the New Architecture**
+
+```bash
+# Test server functionality
+python -m pytest tests/test_server.py -v
+
+# Test client functionality  
+python -m pytest tests/test_client.py -v
+
+# Test full integration
+python -m pytest tests/test_server_client_integration.py -v
+
+# Test original functionality
+python -m pytest tests/test_integration.py -v
+```
 
 ---
 

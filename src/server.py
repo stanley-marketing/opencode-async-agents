@@ -356,6 +356,27 @@ class OpencodeSlackServer:
             """Get agent bridge status"""
             bridge_status = self.agent_bridge.get_bridge_status()
             return jsonify({'bridge': bridge_status})
+        
+        @self.app.route('/project-root', methods=['GET'])
+        def get_project_root():
+            """Get the current project root directory"""
+            project_root = self.file_manager.get_project_root()
+            return jsonify({'project_root': project_root})
+        
+        @self.app.route('/project-root', methods=['POST'])
+        def set_project_root():
+            """Set the project root directory"""
+            data = request.get_json()
+            project_root = data.get('project_root')
+            
+            if not project_root:
+                return jsonify({'error': 'project_root is required'}), 400
+            
+            success = self.file_manager.set_project_root(project_root)
+            if success:
+                return jsonify({'message': f'Project root set to {project_root}'})
+            else:
+                return jsonify({'error': 'Failed to set project root'}), 500
     
     def start(self):
         """Start the server"""

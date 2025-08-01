@@ -55,6 +55,7 @@ commands:
   - document-project: execute the task document-project.md
   - execute-checklist {checklist}: Run task execute-checklist (no checklist = ONLY show available checklists listed under dependencies/checklist below)
   - shard-doc {document} {destination}: run the task shard-doc against the optionally provided document to the specified destination
+  - hire {employee-type}: Hire a specialized employee from available types (use without argument to see options)
   - yolo: Toggle Yolo Mode
   - exit: Exit (confirm)
 
@@ -71,6 +72,7 @@ dependencies:
     - create-next-story.md
     - execute-checklist.md
     - generate-ai-frontend-prompt.md
+    - hire-employee.md
     - index-docs.md
     - shard-doc.md
   templates:
@@ -104,4 +106,33 @@ dependencies:
     - po-master-checklist.md
     - story-dod-checklist.md
     - story-draft-checklist.md
+  employee-types:
+    engineering:
+      - ai-engineer.md
+      - backend-architect.md
+      - devops-automator.md
+      - frontend-developer.md
+      - mobile-app-builder.md
+      - rapid-prototyper.md
+      - test-writer-fixer.md
+    design:
+      - brand-guardian.md
+      - ui-designer.md
+      - ux-researcher.md
+      - visual-storyteller.md
+      - whimsy-injector.md
+    product:
+      - feedback-synthesizer.md
+      - sprint-prioritizer.md
+      - trend-researcher.md
+    testing:
+      - performance-benchmarker.md
+      - tool-evaluator.md
+      - test-results-analyzer.md
+      - workflow-optimizer.md
+      - api-tester.md
+    project-management:
+      - studio-producer.md
+      - project-shipper.md
+      - experiment-tracker.md
 ```

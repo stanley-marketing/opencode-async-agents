@@ -187,6 +187,14 @@ class TelegramManager:
         else:
             formatted_text = text
         
+        # Handle special characters that might break Markdown parsing
+        formatted_text = formatted_text.replace('_', '\\_')  # Escape underscores
+        formatted_text = formatted_text.replace('*', '\\*')  # Escape asterisks
+        formatted_text = formatted_text.replace('[', '\\[')   # Escape brackets
+        formatted_text = formatted_text.replace(']', '\\]')   # Escape brackets
+        formatted_text = formatted_text.replace('(', '\\(')   # Escape parentheses  
+        formatted_text = formatted_text.replace(')', '\\)')   # Escape parentheses
+        
         # Truncate if too long
         if len(formatted_text) > config.max_message_length:
             formatted_text = formatted_text[:config.max_message_length-3] + "..."
@@ -215,6 +223,29 @@ class TelegramManager:
             else:
                 logger.error(f"Failed to send message: {result}")
                 return False
+                
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 400:
+                # Try sending without Markdown formatting
+                logger.warning(f"Markdown formatting failed, trying plain text: {e}")
+                try:
+                    data['parse_mode'] = 'None'  # Remove Markdown parsing
+                    # Remove escape characters for plain text
+                    data['text'] = data['text'].replace('\\_', '_').replace('\\*', '*').replace('\\[', '[').replace('\\]', ']')
+                    
+                    response = requests.post(url, json=data, timeout=10)
+                    response.raise_for_status()
+                    
+                    result = response.json()
+                    if result.get('ok'):
+                        self._record_message_sent(sender_name)
+                        logger.info(f"Plain text message sent by {sender_name}")
+                        return True
+                except Exception as fallback_error:
+                    logger.error(f"Plain text fallback also failed: {fallback_error}")
+            
+            logger.error(f"Error sending message: {e}")
+            return False
                 
         except Exception as e:
             logger.error(f"Error sending message: {e}")

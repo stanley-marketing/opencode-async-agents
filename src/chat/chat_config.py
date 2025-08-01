@@ -6,6 +6,23 @@ Handles bot tokens, chat IDs, and other settings.
 import os
 from typing import Optional
 from dataclasses import dataclass
+from pathlib import Path
+
+# Try to load .env file
+try:
+    from dotenv import load_dotenv
+    # Look for .env file in project root
+    env_path = Path(__file__).parent.parent.parent / '.env'
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"📄 Loaded environment variables from {env_path}")
+    else:
+        # Try current directory
+        load_dotenv()
+except ImportError:
+    print("⚠️  python-dotenv not installed. Install with: pip install python-dotenv")
+except Exception as e:
+    print(f"⚠️  Could not load .env file: {e}")
 
 @dataclass
 class ChatConfig:
