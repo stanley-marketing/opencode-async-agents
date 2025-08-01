@@ -92,7 +92,7 @@ class OpencodeSlackClient:
             'status', 'sessions', 'lock', 'release', 'progress', 'files',
             'employees', 'chat', 'chat-start', 'chat-stop', 'chat-status',
             'agents', 'bridge', 'health', 'clear', 'history', 'chat-debug',
-            'project-root'
+            'project-root', 'hire-specialist'
         ]
         
         # Set up readline completion
@@ -144,6 +144,22 @@ class OpencodeSlackClient:
                         return roles[:]
                     else:
                         return [role for role in roles if role.startswith(text)]
+            elif command in ['hire-specialist']:
+                # hire-specialist <category>
+                if len(words) == 1 and ends_with_space:
+                    # After "hire-specialist " - need category
+                    categories = ['engineering', 'design', 'product', 'testing', 'project-management']
+                    if not text:
+                        return categories[:]
+                    else:
+                        return [cat for cat in categories if cat.startswith(text)]
+                elif len(words) == 2 and not ends_with_space:
+                    # Typing category
+                    categories = ['engineering', 'design', 'product', 'testing', 'project-management']
+                    if not text:
+                        return categories[:]
+                    else:
+                        return [cat for cat in categories if cat.startswith(text)]
             elif command in ['fire', 'assign', 'start', 'stop', 'progress']:
                 # These commands need employee names - provide common placeholders
                 if len(words) == 1 and ends_with_space:
@@ -317,6 +333,8 @@ class OpencodeSlackClient:
             print("Goodbye!")
         elif command == "hire":
             self.handle_hire(parts[1:])
+        elif command == "hire-specialist":
+            self.handle_hire_specialist(parts[1:])
         elif command == "fire":
             self.handle_fire(parts[1:])
         elif command == "assign":
@@ -369,6 +387,7 @@ class OpencodeSlackClient:
         """Show available commands"""
         print("🔥 OPENCODE-SLACK CLIENT - Available commands:")
         print("  hire <name> <role>              - Hire a new employee")
+        print("  hire-specialist [category]     - List available specialists by category")
         print("  fire <name>                     - Fire an employee")
         print("  assign <name> '<task>' [model]  - Assign task to employee")
         print("  start <name> '<task>' [model]   - Start employee working on task")
@@ -954,6 +973,64 @@ class OpencodeSlackClient:
             else:
                 print("❌ Failed to set project root")
 
+
+def handle_hire_specialist(self, args):
+        """Handle hire-specialist command"""
+        # Since this is a client-side command that doesn't require server interaction,
+        # we'll just display information about available employee types
+        
+        # Define available categories and their employee types
+        employee_types = {
+            'engineering': [
+                'Frontend Developer', 'Mobile App Builder', 'AI Engineer',
+                'DevOps Automator', 'Backend Architect', 'Test Writer Fixer',
+                'Rapid Prototyper'
+            ],
+            'design': [
+                'UI Designer', 'UX Researcher', 'Visual Storyteller',
+                'Brand Guardian', 'Whimsy Injector'
+            ],
+            'product': [
+                'Product Manager', 'Sprint Prioritizer', 'Trend Researcher',
+                'Feedback Synthesizer'
+            ],
+            'testing': [
+                'API Tester', 'Performance Benchmarker', 'Test Results Analyzer',
+                'Tool Evaluator', 'Workflow Optimizer'
+            ],
+            'project-management': [
+                'Studio Producer', 'Project Shipper', 'Experiment Tracker'
+            ]
+        }
+        
+        if len(args) < 1:
+            # List all categories
+            print("Available Employee Categories:")
+            print("=" * 40)
+            for i, category in enumerate(employee_types.keys(), 1):
+                print(f"  {i}. {category.replace('-', ' ').title()}")
+            print("\nUsage: hire-specialist <category>")
+            print("Example: hire-specialist engineering")
+            return
+        
+        category = args[0].lower().replace(" ", "-")
+        
+        if category not in employee_types:
+            print(f"❌ Category '{category}' not found!")
+            print("\nAvailable categories:")
+            for cat in employee_types.keys():
+                print(f"  - {cat.replace('-', ' ').title()}")
+            return
+        
+        # List employee types in this category
+        types = employee_types[category]
+        print(f"Available {category.replace('-', ' ').title()} Specialists:")
+        print("=" * 50)
+        for i, emp_type in enumerate(types, 1):
+            print(f"  {i}. {emp_type}")
+        
+        print("\nTo hire one of these specialists, use the hire command:")
+        print("Example: hire john 'frontend developer'")
 
 def main():
     """Main function"""
