@@ -228,6 +228,14 @@ curl -X POST http://localhost:8080/tasks \
 
 # Get system status
 curl http://localhost:8080/status
+
+# Get project root
+curl http://localhost:8080/project-root
+
+# Set project root
+curl -X POST http://localhost:8080/project-root \
+  -H "Content-Type: application/json" \
+  -d '{"project_root": "/path/to/project"}'
 ```
 
 #### **💬 Chat System**
@@ -279,6 +287,7 @@ files [name]                    # Show locked files
 bridge                          # Show task coordination status
 cleanup                         # Clean up completed sessions
 clear                           # Clear screen
+project-root [path]             # Show or set project root directory
 help                            # Show all commands
 quit                            # Exit system
 ```
@@ -399,6 +408,7 @@ TELEGRAM_CHAT_ID=your_group_chat_id
 # System Configuration
 DATABASE_PATH=employees.db                    # SQLite database location
 SESSIONS_DIR=sessions                         # Employee session storage
+PROJECT_ROOT=.                                # Project root directory (default: current directory)
 DEFAULT_MODEL=openrouter/qwen/qwen3-coder    # Default AI model
 
 # Advanced Settings
