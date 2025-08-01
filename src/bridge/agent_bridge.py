@@ -35,8 +35,13 @@ class AgentBridge:
         
         # Update agent manager callbacks
         for employee_name, comm_agent in self.agent_manager.agents.items():
-            comm_agent.on_task_assigned = lambda task, emp=employee_name: self.assign_task_to_worker(emp, task)
-            comm_agent.on_help_received = lambda help_text, emp=employee_name: self.provide_help_to_worker(emp, help_text)
+            self._setup_agent_callback(employee_name, comm_agent)
+    
+    def _setup_agent_callback(self, employee_name: str, comm_agent):
+        """Set up callback for a specific agent"""
+        # Use default argument trick to capture employee_name properly
+        comm_agent.on_task_assigned = (lambda emp: lambda task: self.assign_task_to_worker(emp, task))(employee_name)
+        comm_agent.on_help_received = (lambda emp: lambda help_text: self.provide_help_to_worker(emp, help_text))(employee_name)
     
     def assign_task_to_worker(self, employee_name: str, task_description: str) -> bool:
         """Assign a task from communication agent to worker agent"""

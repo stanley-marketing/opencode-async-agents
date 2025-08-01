@@ -47,8 +47,8 @@ class CLIServer:
         setup_logging(cli_mode=True)
         
         self.file_manager = FileOwnershipManager(db_path)
-        self.task_tracker = TaskProgressTracker(sessions_dir)
         self.session_manager = OpencodeSessionManager(db_path, sessions_dir, quiet_mode=True)
+        self.task_tracker = self.session_manager.task_tracker  # Use the session manager's task tracker
         
         # Initialize chat system
         self.telegram_manager = TelegramManager()
@@ -66,6 +66,12 @@ class CLIServer:
         print("Use TAB for command completion")
         print("Type 'quit' to exit")
         print()
+        
+        # Set up agent monitoring system
+        self.agent_manager.setup_monitoring_system(self.task_tracker, self.session_manager)
+        
+        # Start agent bridge monitoring
+        self.agent_bridge.start_monitoring()
         
         # Auto-start chat system if configured (after initial setup)
         self._auto_start_chat_if_configured()

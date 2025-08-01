@@ -134,8 +134,9 @@ class AgentManager:
         agent = CommunicationAgent(employee_name, role, expertise)
         
         # Set up callbacks for worker integration
-        agent.on_task_assigned = lambda task: self._handle_task_assignment(employee_name, task)
-        agent.on_help_received = lambda help_text: self._handle_help_received(employee_name, help_text)
+        # Use default argument trick to capture employee_name properly
+        agent.on_task_assigned = (lambda emp: lambda task: self._handle_task_assignment(emp, task))(employee_name)
+        agent.on_help_received = (lambda emp: lambda help_text: self._handle_help_received(emp, help_text))(employee_name)
         
         self.agents[employee_name] = agent
         
@@ -172,7 +173,11 @@ class AgentManager:
                     logger.info(f"Agent {mentioned_employee} generated response: {response[:100]}")
                     responses.append((mentioned_employee, response))
                 else:
-                    logger.warning(f"Agent {mentioned_employee} returned no response")
+                    # Ensure agent always responds to direct mentions
+                    logger.warning(f"Agent {mentioned_employee} returned no response, generating fallback")
+                    fallback_response = f"Hi @{message.sender}! I'm here and ready to help. Could you please provide more details about what you'd like me to do?"
+                    responses.append((mentioned_employee, fallback_response))
+                    logger.info(f"Agent {mentioned_employee} generated fallback response: {fallback_response[:100]}")
             else:
                 logger.warning(f"No agent found for mentioned employee: {mentioned_employee}")
         
@@ -189,6 +194,11 @@ class AgentManager:
         # Send responses
         logger.info(f"Sending {len(responses)} responses")
         for employee_name, response in responses:
+            # Ensure response is not empty
+            if not response or not response.strip():
+                logger.warning(f"Agent {employee_name} generated empty response, skipping")
+                continue
+                
             success = self.telegram_manager.send_message(response, employee_name, message.message_id)
             if success:
                 logger.info(f"Agent {employee_name} responded to message")
