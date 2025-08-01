@@ -81,6 +81,9 @@ class AgentManager:
             task_tracker: TaskProgressTracker instance
             session_manager: OpencodeSessionManager instance
         """
+        # Store session manager for task assignment
+        self.session_manager = session_manager
+        
         if not MONITORING_AVAILABLE:
             logger.warning("Monitoring system not available")
             return False
@@ -208,15 +211,22 @@ class AgentManager:
         if not responses:
             logger.info("No responses generated for this message")
     
-    def _handle_task_assignment(self, employee_name: str, task: str):
+    def _handle_task_assignment(self, employee_name: str, task: str) -> bool:
         """Handle task assignment to worker agent"""
         
-        # This is where we'll integrate with the existing worker system
-        # For now, just log the task assignment
         logger.info(f"Task assigned to {employee_name}: {task}")
         
-        # TODO: Integrate with OpencodeSessionManager to start actual work
-        # session_manager.start_employee_task(employee_name, task)
+        # Integrate with OpencodeSessionManager to start actual work
+        if hasattr(self, 'session_manager') and self.session_manager:
+            try:
+                session_id = self.session_manager.start_employee_task(employee_name, task)
+                return session_id is not None
+            except Exception as e:
+                logger.error(f"Error starting session for {employee_name}: {e}")
+                return False
+        else:
+            logger.warning("No session manager available for task assignment")
+            return False
     
     def _handle_help_received(self, employee_name: str, help_text: str):
         """Handle help received by an agent"""

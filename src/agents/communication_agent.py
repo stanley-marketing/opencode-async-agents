@@ -110,21 +110,59 @@ class CommunicationAgent(BaseCommunicationAgent):
             message.text, self.employee_name
         )
         
-        # Update state
-        self.current_task = task_description
-        self.worker_status = "working"
-        self.active_tasks.add(task_description)
+        # Ensure we have a meaningful task description
+        if not task_description or not task_description.strip():
+            task_description = message.text[:100] + "..." if len(message.text) > 100 else message.text
         
         # Notify worker agent if callback is set
+        assignment_successful = False
         if self.on_task_assigned:
             try:
-                self.on_task_assigned(task_description)
+                # Try to assign task to worker
+                assignment_successful = self.on_task_assigned(task_description)
             except Exception as e:
                 logger.error(f"Error notifying worker agent: {e}")
+                assignment_successful = False
         
-        # Record response and return acknowledgment
-        self._record_response()
-        return self.format_acknowledgment(task_description)
+        # Only update state if assignment was successful
+        if assignment_successful:
+            # Update state
+            self.current_task = task_description
+            self.worker_status = "working"
+            self.active_tasks.add(task_description)
+            
+            # Record response and return acknowledgment
+            self._record_response()
+            response = self.format_acknowledgment(task_description)
+            logger.debug(f"Formatted acknowledgment for {self.employee_name}: {response}")
+            return response
+        else:
+            # Assignment failed - use ReAct agent for a more intelligent response
+            logger.info(f"Task assignment failed for {self.employee_name}, using ReAct agent")
+            
+            # Create context for the conversation
+            context = {
+                "sender": message.sender,
+                "timestamp": message.timestamp.isoformat() if message.timestamp else "unknown",
+                "chat_type": "task_assignment_failed"
+            }
+            
+            # Try to get intelligent response from ReAct agent
+            if self.react_agent:
+                try:
+                    response = self.react_agent.handle_message(
+                        f"Task assignment failed for: {task_description}. Respond appropriately.", 
+                        context
+                    )
+                    if response and response.strip():
+                        self._record_response()
+                        return response
+                except Exception as e:
+                    logger.warning(f"ReAct agent failed for {self.employee_name}: {e}")
+            
+            # Fallback response
+            self._record_response()
+            return "I'm currently working on another task. Please give me a moment to finish that before assigning me new work."
     
     def _handle_direct_help_request(self, message: ParsedMessage) -> str:
         """Handle a help request directed specifically at this agent"""
@@ -134,64 +172,80 @@ class CommunicationAgent(BaseCommunicationAgent):
         
         if help_topic and help_topic in self.expertise:
             suggestion = self._generate_help_suggestion(help_topic, message.text)
-            self._record_response()
-            return self.format_help_offer(suggestion)
-        else:
-            self._record_response()
-            return "I'm not sure I can help with that, but let me think about it."
+            if suggestion:
+                self._record_response()
+                return self.format_help_offer(suggestion)
+        
+        # Provide a general helpful response
+        self._record_response()
+        return "I'm here to help! Could you please provide more details about what specific issue you're facing? That way I can give you more targeted assistance."
         
     def _handle_general_mention(self, message: ParsedMessage) -> str:
-            """Handle a general mention (not task assignment or help request)"""
-            # Use ReAct agent for intelligent conversation if available
-            if self.react_agent:
-                try:
-                    # Create context for the conversation
-                    context = {
-                        "sender": message.sender,
-                        "timestamp": message.timestamp.isoformat() if message.timestamp else "unknown",
-                        "chat_type": "general_mention"
-                    }
-                    
-                    # Get intelligent response from ReAct agent
-                    response = self.react_agent.handle_message(message.text, context)
+        """Handle a general mention (not task assignment or help request)"""
+        # Use ReAct agent for intelligent conversation if available
+        if self.react_agent:
+            try:
+                # Create context for the conversation
+                context = {
+                    "sender": message.sender,
+                    "timestamp": message.timestamp.isoformat() if message.timestamp else "unknown",
+                    "chat_type": "general_mention"
+                }
+                
+                # Get intelligent response from ReAct agent
+                response = self.react_agent.handle_message(message.text, context)
+                
+                # Ensure we have a response
+                if response and response.strip():
                     self._record_response()
                     return response
-                except Exception as e:
-                    logger.warning(f"ReAct agent failed for {self.employee_name}: {e}")
-                    # Fall back to simple responses
-                    pass
-            
-            # Fallback to simple responses if ReAct agent fails
-            text_lower = message.text.lower()
-            
-            # Check for common conversational patterns
-            if "how are you" in text_lower or "how are u" in text_lower:
+                else:
+                    logger.warning(f"ReAct agent returned empty response for {self.employee_name}")
+            except Exception as e:
+                logger.warning(f"ReAct agent failed for {self.employee_name}: {e}")
+                # Fall back to simple responses
+                pass
+        
+        # Fallback to simple responses if ReAct agent fails or returns empty response
+        text_lower = message.text.lower()
+        
+        # Check for common conversational patterns
+        if "how are you" in text_lower or "how are u" in text_lower:
+            responses = [
+                "I'm doing great! Just finished reviewing some code. How are you doing today?",
+                "I'm here and ready to help! Had a productive morning working on tasks. How can I assist you?",
+                "Feeling energized and ready to tackle challenges! What's on your mind?"
+            ]
+        elif "hello" in text_lower or "hi " in text_lower or "hey" in text_lower:
+            responses = [
+                "Hello there! What can I help you with today?",
+                "Hi! I'm excited to work on something. Got any interesting tasks for me?",
+                "Hey! I'm here and ready to be productive. What's up?"
+            ]
+        elif "good morning" in text_lower:
+            responses = [
+                "Good morning! I'm ready to start the day with some coding. What's first on the agenda?",
+                "Morning! I've been reviewing our project status and I'm pumped to get started!"
+            ]
+        elif "good evening" in text_lower:
+            responses = [
+                "Good evening! How was your day? I've been making good progress on my tasks.",
+                "Evening! I'm still here and ready to help if you need anything."
+            ]
+        elif "bye" in text_lower or "goodbye" in text_lower:
+            responses = [
+                "See you later! Let me know if you need anything before you go.",
+                "Goodbye! I'll keep working on my current tasks. Catch you tomorrow!",
+                "Bye! Feel free to ping me if you think of anything else."
+            ]
+        else:
+            # Handle task-like requests that might be disguised as casual mentions
+            if any(keyword in text_lower for keyword in ['check', 'look', 'review', 'coverage', 'report']):
                 responses = [
-                    "I'm doing great! Just finished reviewing some code. How are you doing today?",
-                    "I'm here and ready to help! Had a productive morning working on tasks. How can I assist you?",
-                    "Feeling energized and ready to tackle challenges! What's on your mind?"
-                ]
-            elif "hello" in text_lower or "hi " in text_lower or "hey" in text_lower:
-                responses = [
-                    "Hello there! What can I help you with today?",
-                    "Hi! I'm excited to work on something. Got any interesting tasks for me?",
-                    "Hey! I'm here and ready to be productive. What's up?"
-                ]
-            elif "good morning" in text_lower:
-                responses = [
-                    "Good morning! I'm ready to start the day with some coding. What's first on the agenda?",
-                    "Morning! I've been reviewing our project status and I'm pumped to get started!"
-                ]
-            elif "good evening" in text_lower:
-                responses = [
-                    "Good evening! How was your day? I've been making good progress on my tasks.",
-                    "Evening! I'm still here and ready to help if you need anything."
-                ]
-            elif "bye" in text_lower or "goodbye" in text_lower:
-                responses = [
-                    "See you later! Let me know if you need anything before you go.",
-                    "Goodbye! I'll keep working on my current tasks. Catch you tomorrow!",
-                    "Bye! Feel free to ping me if you think of anything else."
+                    "I'd be happy to help with that. Could you please provide more details about what specifically you'd like me to check?",
+                    "Sure, I can look into that for you. What exactly would you like me to examine or report on?",
+                    "I'm on it! Please give me a few more details about what you need me to check or review.",
+                    "Absolutely! Just to clarify, what specific aspects would you like me to focus on when checking this?"
                 ]
             else:
                 # General purpose responses
@@ -205,10 +259,10 @@ class CommunicationAgent(BaseCommunicationAgent):
                     "Hi! I'm here and eager to contribute. What's the plan?",
                     "Good to hear from you! What can I tackle for you today?"
                 ]
-            
-            import random
-            self._record_response()
-            return random.choice(responses)
+        
+        import random
+        self._record_response()
+        return random.choice(responses)
 
     def _offer_help(self, message: ParsedMessage) -> Optional[str]:
         """Offer help on a message"""
@@ -362,14 +416,39 @@ class CommunicationAgent(BaseCommunicationAgent):
     def _generate_discussion_response(self, message: ParsedMessage) -> Optional[str]:
         """Generate a response to general discussion"""
         
-        # Keep responses brief and professional
-        responses = [
-            "That's a good point.",
-            "I agree with that approach.",
-            "That should work well.",
-            "Good idea.",
-            "That makes sense.",
-        ]
+        text_lower = message.text.lower()
+        
+        # More engaging responses based on context
+        if "problem" in text_lower or "issue" in text_lower or "error" in text_lower:
+            responses = [
+                "That sounds challenging. Have you checked the logs for more details?",
+                "I've seen similar issues before. Would you like me to help troubleshoot?",
+                "That's frustrating. Let me know if there's anything I can do to help resolve it."
+            ]
+        elif "idea" in text_lower or "suggestion" in text_lower:
+            responses = [
+                "That's an interesting idea! I'd love to hear more details.",
+                "Great suggestion! How do you think we could implement that?",
+                "I like where you're going with this. What's the next step?"
+            ]
+        elif "progress" in text_lower or "status" in text_lower:
+            responses = [
+                "How's the progress coming along? Anything I can help with?",
+                "That's good to hear! Let me know if you need any assistance.",
+                "Sounds like good progress. Keep up the great work!"
+            ]
+        else:
+            # Keep responses brief and professional
+            responses = [
+                "That's a good point.",
+                "I agree with that approach.",
+                "That should work well.",
+                "Good idea.",
+                "That makes sense.",
+                "Interesting perspective!",
+                "I hadn't thought of that.",
+                "That could be very useful."
+            ]
         
         import random
         return random.choice(responses)
