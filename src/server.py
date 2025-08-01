@@ -57,7 +57,7 @@ class OpencodeSlackServer:
         # Initialize core components
         self.file_manager = FileOwnershipManager(db_path)
         self.task_tracker = TaskProgressTracker(sessions_dir)
-        self.session_manager = OpencodeSessionManager(db_path, sessions_dir, quiet_mode=True)
+        self.session_manager = OpencodeSessionManager(self.file_manager, sessions_dir, quiet_mode=True)
         
         # Initialize chat system
         self.telegram_manager = TelegramManager()

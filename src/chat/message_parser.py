@@ -129,9 +129,24 @@ class MessageParser:
         clean_text = re.sub(mention_pattern, '', text, flags=re.IGNORECASE).strip()
         
         # Remove common prefixes
-        prefixes_to_remove = ['please', 'can you', 'could you']
+        prefixes_to_remove = ['please', 'can you', 'could you', 'i need you to', 'i want you to']
         for prefix in prefixes_to_remove:
             if clean_text.lower().startswith(prefix):
                 clean_text = clean_text[len(prefix):].strip()
         
+        # Remove common suffixes
+        suffixes_to_remove = ['thanks', 'thank you', 'pls', 'plz']
+        for suffix in suffixes_to_remove:
+            if clean_text.lower().endswith(suffix):
+                clean_text = clean_text[:-len(suffix)].strip()
+        
+        # If we still have a generic request, try to extract the core
+        if any(word in clean_text.lower() for word in ['look at', 'check', 'review', 'examine']):
+            # This is likely a request to examine something
+            return clean_text
+        
+        # If we have something very short, use the original message
+        if len(clean_text) < 10 and len(text) > len(clean_text):
+            return text[:100] + "..." if len(text) > 100 else text
+            
         return clean_text

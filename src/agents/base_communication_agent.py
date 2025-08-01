@@ -89,10 +89,14 @@ class BaseCommunicationAgent(ABC):
         
         # Check if message is relevant to expertise
         if not self._is_message_relevant(message):
+            # Still respond to direct questions or mentions of work
+            text_lower = message.text.lower()
+            if any(keyword in text_lower for keyword in ['what do you think', 'your opinion', 'how would you', 'what about']):
+                return random.random() < (self.response_probability * 2)  # Higher chance for direct questions
             return False
         
-        # Random chance to respond (timid behavior)
-        return random.random() < self.response_probability
+        # Higher probability for relevant messages
+        return random.random() < (self.response_probability * 1.5)
     
     def should_offer_help(self, message: ParsedMessage) -> bool:
         """Decide whether to offer help on a message"""

@@ -97,9 +97,25 @@ class FileOwnershipManager:
         finally:
             conn.close()
     
+    def employee_exists(self, name: str) -> bool:
+        """Check if an employee exists"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("SELECT 1 FROM employees WHERE name = ?", (name,))
+            return cursor.fetchone() is not None
+        finally:
+            conn.close()
+    
     def fire_employee(self, name: str, task_tracker=None) -> bool:
         """Fire an employee and release all their files"""
         logger.info(f"Firing employee: {name}")
+        
+        # Check if employee exists first
+        if not self.employee_exists(name):
+            logger.info(f"Employee {name} does not exist, nothing to fire")
+            return False
         
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()

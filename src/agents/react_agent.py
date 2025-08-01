@@ -3,6 +3,7 @@ ReAct Agent using LangChain for intelligent task handling and project interactio
 """
 
 import os
+import logging
 from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 from langchain.agents import create_react_agent, AgentExecutor
@@ -11,6 +12,8 @@ from langchain_openai import ChatOpenAI
 
 from .agent_tools import get_agent_tools
 from ..services.llm_service import LLMService
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -171,6 +174,10 @@ Current focus areas include improving agent communication, task assignment workf
             
             output = result.get("output", "I couldn't process that request.")
             
+            # Ensure we have a meaningful response
+            if not output or not output.strip():
+                return "I'm here and ready to help! Could you please provide more details about what you'd like me to do?"
+            
             # Clean up verbose output if needed
             if "Agent stopped due to iteration limit" in output:
                 # Extract just the meaningful part before the limit message
@@ -182,12 +189,21 @@ Current focus areas include improving agent communication, task assignment workf
                     if line.strip():
                         meaningful_lines.append(line.strip())
                 if meaningful_lines:
-                    return '\n'.join(meaningful_lines)
+                    response = '\n'.join(meaningful_lines)
+                    # Ensure response is not empty
+                    if response.strip():
+                        return response
+            
+            # Ensure response is not just a copy of the input
+            if output.strip().lower() == message.strip().lower():
+                return f"I understand you're asking about: {message[:50]}... How specifically can I help with this?"
             
             return output
             
         except Exception as e:
-            return f"Sorry, I encountered an error: {str(e)}"
+            logger.warning(f"ReAct agent error for {self.employee_name}: {str(e)}")
+            # Provide a fallback response
+            return "I'm here and ready to help! Could you please rephrase your request or provide more details about what you'd like me to do?"
     
     def get_agent_info(self) -> Dict[str, Any]:
         """Get information about the agent"""
