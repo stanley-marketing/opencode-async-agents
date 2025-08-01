@@ -7,7 +7,7 @@ To properly shut down the OpenCode-Slack server:
 1. **Using Ctrl+C** (if running in foreground):
    ```bash
    ./run.sh server
-   # Press Ctrl+C to stop gracefully
+   # Press Ctrl+C to stop immediately
    ```
 
 2. **Using kill command** (if running in background):
@@ -16,13 +16,21 @@ To properly shut down the OpenCode-Slack server:
    ./run.sh server & 
    # Get the process ID
    SERVER_PID=$!
-   # Stop the server
+   # Stop the server immediately
    kill $SERVER_PID
    ```
 
-## Force Shutdown (If Normal Shutdown Fails)
+3. **Using SIGTERM for immediate shutdown**:
+   ```bash
+   # Find the server process
+   ps aux | grep "src.server"
+   # Stop the server immediately
+   kill -TERM <process_id>
+   ```
 
-If the server hangs during shutdown:
+## Force Shutdown (If Needed)
+
+If the server doesn't respond to normal signals:
 
 ```bash
 # Find the server process
@@ -31,21 +39,20 @@ ps aux | grep "src.server"
 kill -9 <process_id>
 ```
 
-## What Happens During Proper Shutdown
+## What Happens During Shutdown
 
-1. Telegram polling is stopped and waits for the thread to finish (up to 10 seconds)
-2. All active tasks are stopped
-3. The Flask server is shut down
-4. The process exits cleanly
+The server now shuts down immediately on any signal:
+1. All threads are terminated immediately
+2. No waiting for cleanup or graceful shutdown
+3. Process exits with code 0
 
 ## Common Issues and Solutions
 
-### Server Hangs on Shutdown
-This is now fixed in the latest version. If you still experience hanging:
+### Server Not Responding to Signals
+If the server doesn't respond to Ctrl+C or kill commands:
 
-1. Check for any ongoing Telegram API calls
-2. Ensure no infinite loops in agent tasks
-3. Use the force shutdown method above
+1. Use `kill -9` for force termination
+2. Check for any zombie processes with `ps aux | grep python`
 
 ### Telegram Conflicts
 The system now automatically:
