@@ -12,6 +12,16 @@ from src.chat.telegram_manager import TelegramManager
 from src.chat.message_parser import ParsedMessage
 from src.managers.file_ownership import FileOwnershipManager
 
+# Optional imports for monitoring system
+try:
+    from src.monitoring.agent_health_monitor import AgentHealthMonitor
+    from src.monitoring.agent_recovery_manager import AgentRecoveryManager
+    MONITORING_AVAILABLE = True
+except ImportError:
+    MONITORING_AVAILABLE = False
+    AgentHealthMonitor = None
+    AgentRecoveryManager = None
+
 logger = logging.getLogger(__name__)
 
 class AgentManager:
@@ -28,8 +38,16 @@ class AgentManager:
         # Help request tracking
         self.pending_help_requests: Dict[str, Dict] = {}
         
+        # Monitoring system components (optional)
+        self.health_monitor: Optional[AgentHealthMonitor] = None
+        self.recovery_manager: Optional[AgentRecoveryManager] = None
+        
         # Initialize agents for existing employees
         self._initialize_existing_agents()
+        
+        # Initialize monitoring system if available
+        if MONITORING_AVAILABLE:
+            self._initialize_monitoring_system()
     
     def _initialize_existing_agents(self):
         """Create communication agents for existing employees"""
@@ -45,6 +63,49 @@ class AgentManager:
             self.create_agent(name, role, expertise)
         
         logger.info(f"Initialized {len(self.agents)} communication agents")
+    
+    def _initialize_monitoring_system(self):
+        """Initialize the agent monitoring system"""
+        try:
+            # We'll initialize the monitoring system properly when we have access to 
+            # the task tracker and session manager
+            logger.info("Monitoring system available for initialization")
+        except Exception as e:
+            logger.warning(f"Could not initialize monitoring system: {e}")
+    
+    def setup_monitoring_system(self, task_tracker, session_manager):
+        """
+        Set up the monitoring system with required dependencies
+        
+        Args:
+            task_tracker: TaskProgressTracker instance
+            session_manager: OpencodeSessionManager instance
+        """
+        if not MONITORING_AVAILABLE:
+            logger.warning("Monitoring system not available")
+            return False
+        
+        try:
+            # Initialize health monitor
+            self.health_monitor = AgentHealthMonitor(self, task_tracker)
+            
+            # Initialize recovery manager
+            self.recovery_manager = AgentRecoveryManager(self, session_manager)
+            
+            # Set up anomaly callback
+            def anomaly_callback(agent_name, anomalies, status_record):
+                if self.recovery_manager:
+                    self.recovery_manager.handle_agent_anomaly(agent_name, anomalies, status_record)
+            
+            # Start monitoring
+            self.health_monitor.start_monitoring(anomaly_callback)
+            
+            logger.info("Monitoring system initialized and started")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error setting up monitoring system: {e}")
+            return False
     
     def _get_expertise_for_role(self, role: str) -> List[str]:
         """Get expertise areas based on employee role"""

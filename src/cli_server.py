@@ -111,7 +111,8 @@ class CLIServer:
             'status', 'sessions', 'lock', 'release', 'request', 'approve',
             'deny', 'progress', 'task', 'cleanup', 'chat', 'chat-start',
             'chat-stop', 'chat-status', 'agents', 'bridge', 'employees',
-            'files', 'clear', 'history', 'models', 'model-set', 'hire-specialist'
+            'files', 'clear', 'history', 'models', 'model-set', 'hire-specialist',
+            'monitor', 'monitor-dashboard'
         ]
         
         # Set up readline completion
@@ -416,6 +417,8 @@ class CLIServer:
             self.handle_models(parts[1:])
         elif command == "model-set":
             self.handle_model_set(parts[1:])
+        elif command == "monitor" or command == "monitor-dashboard":
+            self.handle_monitor(parts[1:])
         else:
             print(f"Unknown command: {command}")
             print("Type 'help' for available commands")
@@ -453,6 +456,8 @@ class CLIServer:
         print("  files [name]                    - Show locked files (for employee or all)")
         print("  history                         - Show command history")
         print("  clear                           - Clear the screen")
+        print("  monitor                         - Show agent monitoring dashboard")
+        print("  monitor-dashboard               - Interactive monitoring dashboard")
         print("  help                            - Show this help")
         print("  quit                            - Exit the server")
         print()
@@ -1100,6 +1105,77 @@ class CLIServer:
         
         print("\nUsage: hire <name> <specialty> [smartness]")
         print("Example: hire john frontend-developer smart")
+    
+    def handle_monitor(self, args):
+        """Handle monitor command - show agent monitoring dashboard"""
+        # Try to import monitoring components
+        try:
+            from src.monitoring.agent_health_monitor import AgentHealthMonitor
+            from src.monitoring.agent_recovery_manager import AgentRecoveryManager
+            from src.monitoring.monitoring_dashboard import MonitoringDashboard
+        except ImportError as e:
+            print("❌ Monitoring system not available:", str(e))
+            return
+        
+        # Check if monitoring is set up
+        if not hasattr(self, 'health_monitor') or not self.health_monitor:
+            print("⚠️  Monitoring system not initialized")
+            print("💡 Monitoring system is available but not initialized in this CLI session")
+            print("   Start the full server to enable monitoring")
+            return
+        
+        # If we have args, treat it as interactive mode
+        if args:
+            # Interactive dashboard mode
+            if hasattr(self, 'monitoring_dashboard') and self.monitoring_dashboard:
+                print("🔍 Starting interactive monitoring dashboard...")
+                print("Type 'help' for commands, 'quit' to exit")
+                self.monitoring_dashboard.run_interactive_dashboard()
+            else:
+                print("❌ Interactive monitoring dashboard not available")
+            return
+        
+        # Static dashboard mode
+        print("🔍 AGENT MONITORING DASHBOARD")
+        print("=" * 50)
+        
+        # Show health summary
+        if hasattr(self, 'health_monitor') and self.health_monitor:
+            health_summary = self.health_monitor.get_agent_health_summary()
+            if 'error' not in health_summary:
+                print("\nOVERALL STATUS:")
+                print(f"  Total Agents:     {health_summary['total_agents']}")
+                print(f"  Healthy Agents:   {health_summary['healthy_agents']}")
+                print(f"  Stuck Agents:      {health_summary['stuck_agents']}")
+                print(f"  Stagnant Agents:   {health_summary['stagnant_agents']}")
+                print(f"  Error Agents:      {health_summary['error_agents']}")
+                
+                print("\nAGENT DETAILS:")
+                for agent_name, details in health_summary['agent_details'].items():
+                    health_indicator = "✓"  # Healthy
+                    if details['health_status'] == 'ERROR':
+                        health_indicator = "✗"
+                    elif details['health_status'] == 'STUCK':
+                        health_indicator = "⊘"
+                    elif details['health_status'] == 'STAGNANT':
+                        health_indicator = "◐"
+                    
+                    print(f"  {health_indicator} {agent_name:<15} | "
+                          f"Status: {details['worker_status']:<8} | "
+                          f"Progress: {details['overall_progress']:>3}% | "
+                          f"Task: {details['current_task'][:30]}{'...' if len(details['current_task']) > 30 else ''}")
+            else:
+                print(f"❌ Error: {health_summary['error']}")
+        
+        # Show recovery summary
+        if hasattr(self, 'recovery_manager') and self.recovery_manager:
+            recovery_summary = self.recovery_manager.get_recovery_summary()
+            if 'error' not in recovery_summary:
+                print("\nRECOVERY STATISTICS:")
+                print(f"  Total Attempts:    {recovery_summary['total_recovery_attempts']}")
+                print(f"  Successful:        {recovery_summary['successful_recoveries']}")
+                print(f"  Failed:            {recovery_summary['failed_recoveries']}")
+                print(f"  Escalations:       {recovery_summary['escalations']}")
 
 def main():
     """Main function"""

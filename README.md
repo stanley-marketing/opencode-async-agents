@@ -36,6 +36,13 @@ Imagine having a team of AI developers who:
 - **Intelligent Help**: Stuck agents automatically request team assistance
 - **Two-Layer Architecture**: Communication agents + Worker agents
 
+### 🔍 **Agent Monitoring System**
+- **Real-time Health Monitoring**: Continuous monitoring of agent status and progress
+- **Automatic Anomaly Detection**: Detects stuck states, progress stagnation, and errors
+- **Automatic Recovery**: Automatically restarts stuck agents and notifies them to continue work
+- **Interactive Dashboard**: CLI dashboard for real-time monitoring of agent status
+- **API Integration**: REST API endpoints for monitoring data and statistics
+
 ### 🔒 **Advanced File Management**
 - **Conflict-Free Collaboration**: Database-backed file locking system
 - **Smart Request System**: Employees can request files from each other
@@ -65,13 +72,16 @@ Imagine having a team of AI developers who:
     ↓ (actual work execution)
 ⚡ Worker Agents (opencode sessions)
     ↓ (file modifications)
+🔍 Monitoring System (health checks & recovery)
+    ↓ (monitoring data)
 📁 Your Codebase (with conflict prevention)
 ```
 
-### **Two-Layer Agent System**
+### **Enhanced Architecture with Monitoring**
 1. **Communication Layer**: Handles chat, mentions, help coordination
 2. **Worker Layer**: Executes actual coding tasks using opencode
 3. **Bridge System**: Coordinates between layers with stuck detection
+4. **Monitoring Layer**: Continuously monitors agent health and provides automatic recovery
 
 ## 🚀 Quick Start
 
