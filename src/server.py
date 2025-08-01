@@ -424,49 +424,22 @@ class OpencodeSlackServer:
     
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals"""
-        self.logger.info(f"Received signal {signum}, shutting down...")
-        self.stop()
+        self.logger.info(f"Received signal {signum}, shutting down immediately...")
+        import os
+        os._exit(0)
     
     def stop(self):
-        """Stop the server"""
-        if not self.running:
-            return
+        """Stop the server immediately"""
+        self.logger.info("Shutting down OpenCode-Slack server immediately...")
+        print("\n🛑 Shutting down server immediately...")
         
-        self.logger.info("Shutting down OpenCode-Slack server...")
-        print("\n🛑 Shutting down server...")
-        
-        # Stop chat system first to avoid conflicts
-        if self.chat_enabled:
-            try:
-                self.telegram_manager.stop_polling()
-                self.chat_enabled = False
-                print("💬 Chat system stopped")
-            except Exception as e:
-                self.logger.error(f"Error stopping chat system: {e}")
-        
-        # Stop all active tasks
-        try:
-            self.agent_bridge.stop_all_tasks()
-            print("🔄 All tasks stopped")
-        except Exception as e:
-            self.logger.error(f"Error stopping tasks: {e}")
-        
-        # Stop the Flask server
-        if hasattr(self, 'server_instance'):
-            try:
-                self.server_instance.shutdown()
-                print("🖥️  Server instance stopped")
-            except Exception as e:
-                self.logger.error(f"Error stopping server instance: {e}")
+        # Stop chat system immediately
+        self.chat_enabled = False
         
         self.running = False
         print("✅ Server shutdown complete")
         
-        # Give a moment for cleanup
-        import time
-        time.sleep(0.5)
-        
-        # Force exit to ensure all threads are terminated
+        # Immediate exit
         import os
         os._exit(0)
 
