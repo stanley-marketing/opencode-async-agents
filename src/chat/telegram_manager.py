@@ -53,6 +53,9 @@ class TelegramManager:
             logger.error("Telegram bot not configured. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID")
             return
         
+        # Clear any existing webhooks to avoid conflicts
+        self._clear_webhook()
+        
         self.is_polling = True
         self.polling_thread = threading.Thread(target=self._polling_loop, daemon=True)
         self.polling_thread.start()
@@ -61,21 +64,45 @@ class TelegramManager:
     def stop_polling(self):
         """Stop polling for messages"""
         self.is_polling = False
-        if self.polling_thread:
-            self.polling_thread.join(timeout=5)
+        if self.polling_thread and self.polling_thread.is_alive():
+            logger.info("Waiting for polling thread to finish...")
+            self.polling_thread.join(timeout=10)  # Wait up to 10 seconds
+            if self.polling_thread.is_alive():
+                logger.warning("Polling thread did not finish in time")
         logger.info("Stopped Telegram polling")
     
     def _polling_loop(self):
         """Main polling loop running in background thread"""
+        consecutive_conflicts = 0
+        max_conflicts = 5
+        
         while self.is_polling:
             try:
                 updates = self._get_updates()
+                
+                # Reset conflict counter on successful update
+                if updates is not None:
+                    consecutive_conflicts = 0
+                
                 for update in updates:
                     self._process_update(update)
+                
                 time.sleep(1)  # Poll every second
+                
             except Exception as e:
                 logger.error(f"Error in polling loop: {e}")
-                time.sleep(5)  # Wait longer on error
+                
+                # Handle consecutive conflicts
+                if "409" in str(e) or "Conflict" in str(e):
+                    consecutive_conflicts += 1
+                    if consecutive_conflicts >= max_conflicts:
+                        logger.warning(f"Too many consecutive conflicts ({consecutive_conflicts}). Pausing polling for 60 seconds.")
+                        time.sleep(60)
+                        consecutive_conflicts = 0
+                    else:
+                        time.sleep(10)  # Wait longer for conflicts
+                else:
+                    time.sleep(5)  # Wait for other errors
     
     def _get_updates(self) -> List[Dict]:
         """Get updates from Telegram API"""
@@ -103,6 +130,15 @@ class TelegramManager:
             
             return updates
             
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 409:
+                # Conflict error - another instance is polling or webhook is set
+                logger.warning("Telegram polling conflict detected. Attempting to resolve...")
+                self._resolve_polling_conflict()
+                return []
+            else:
+                logger.error(f"HTTP error getting updates: {e}")
+                return []
         except Exception as e:
             logger.error(f"Error getting updates: {e}")
             return []
@@ -111,25 +147,30 @@ class TelegramManager:
         """Process a single update from Telegram"""
         message_data = update.get('message')
         if not message_data:
+            logger.debug("Update has no message data, skipping")
             return
         
         # Only process messages from our chat
         chat_id = str(message_data.get('chat', {}).get('id', ''))
         if chat_id != self.chat_id:
+            logger.debug(f"Message from different chat {chat_id}, expected {self.chat_id}")
             return
         
         # Parse the message
         parsed_message = self.message_parser.parse_message(message_data)
+        logger.info(f"Processing message from {parsed_message.sender}: {parsed_message.text[:100]}")
+        logger.debug(f"Message mentions: {parsed_message.mentions}")
         
         # Add to queue for processing
         self.message_queue.put(parsed_message)
         
         # Notify handlers
+        logger.debug(f"Notifying {len(self.message_handlers)} message handlers")
         for handler in self.message_handlers:
             try:
                 handler(parsed_message)
             except Exception as e:
-                logger.error(f"Error in message handler: {e}")
+                logger.error(f"Error in message handler: {e}", exc_info=True)
     
     def send_message(self, text: str, sender_name: str = "system", 
                     reply_to: Optional[int] = None) -> bool:
@@ -214,6 +255,26 @@ class TelegramManager:
             self.message_count[sender_name] = []
         self.message_count[sender_name].append(now)
     
+    def get_webhook_info(self) -> Dict:
+        """Get information about current webhook setup"""
+        try:
+            import requests
+            
+            url = f"{self.base_url}/getWebhookInfo"
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            if data.get('ok'):
+                return data.get('result', {})
+            else:
+                logger.error(f"Failed to get webhook info: {data}")
+                return {}
+                
+        except Exception as e:
+            logger.error(f"Error getting webhook info: {e}")
+            return {}
+    
     def get_chat_info(self) -> Dict:
         """Get information about the chat"""
         try:
@@ -235,6 +296,42 @@ class TelegramManager:
         except Exception as e:
             logger.error(f"Error getting chat info: {e}")
             return {}
+    
+    def _clear_webhook(self):
+        """Clear any existing webhook to avoid polling conflicts"""
+        try:
+            import requests
+            
+            url = f"{self.base_url}/deleteWebhook"
+            response = requests.post(url, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('ok'):
+                    logger.info("Cleared existing webhook")
+                else:
+                    logger.warning(f"Failed to clear webhook: {data}")
+            
+        except Exception as e:
+            logger.warning(f"Error clearing webhook: {e}")
+    
+    def _resolve_polling_conflict(self):
+        """Attempt to resolve polling conflicts"""
+        try:
+            # First, try to clear webhook
+            self._clear_webhook()
+            
+            # Wait a bit for the conflict to resolve
+            import time
+            time.sleep(2)
+            
+            # Reset update offset to avoid getting stuck
+            self.last_update_id = 0
+            
+            logger.info("Attempted to resolve polling conflict")
+            
+        except Exception as e:
+            logger.error(f"Error resolving polling conflict: {e}")
     
     def is_connected(self) -> bool:
         """Check if bot is connected and working"""
