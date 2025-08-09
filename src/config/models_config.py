@@ -1,11 +1,11 @@
-import os
-import json
 from pathlib import Path
 from typing import Dict, Any
+import json
+import os
 
 class ModelsConfig:
     """Configuration for AI models used by employees"""
-    
+
     # Default model configurations
     DEFAULT_MODELS = {
         "smart": {
@@ -19,7 +19,7 @@ class ModelsConfig:
             "cost_level": "low"
         }
     }
-    
+
     # Supported providers and models
     SUPPORTED_MODELS = {
         "openrouter": [
@@ -38,11 +38,11 @@ class ModelsConfig:
             "gpt-3.5-turbo"
         ]
     }
-    
+
     def __init__(self, config_path: str = "models_config.json"):
         self.config_path = Path(config_path)
         self.config = self._load_config()
-    
+
     def _load_config(self) -> Dict[str, Any]:
         """Load model configuration from file or use defaults"""
         if self.config_path.exists():
@@ -56,7 +56,7 @@ class ModelsConfig:
             # Create default config file
             self._save_config(self.DEFAULT_MODELS)
             return self.DEFAULT_MODELS
-    
+
     def _save_config(self, config: Dict[str, Any]):
         """Save configuration to file"""
         try:
@@ -64,15 +64,15 @@ class ModelsConfig:
                 json.dump(config, f, indent=2)
         except Exception as e:
             print(f"Error saving model config: {e}")
-    
+
     def get_model_for_level(self, level: str) -> str:
         """Get model name for a given smartness level"""
         return self.config.get(level, {}).get("name", self.DEFAULT_MODELS.get(level, {}).get("name"))
-    
+
     def get_all_models(self) -> Dict[str, Any]:
         """Get all configured models"""
         return self.config
-    
+
     def update_model(self, level: str, model_name: str, description: str = "", cost_level: str = "medium"):
         """Update model configuration for a specific level"""
         self.config[level] = {
@@ -81,7 +81,7 @@ class ModelsConfig:
             "cost_level": cost_level
         }
         self._save_config(self.config)
-    
+
     def is_supported_model(self, model_name: str) -> bool:
         """Check if a model is supported"""
         for provider, models in self.SUPPORTED_MODELS.items():

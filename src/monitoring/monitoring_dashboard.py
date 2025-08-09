@@ -3,33 +3,32 @@ Monitoring Dashboard for the OpenCode-Slack system.
 Provides real-time view of agent status and health metrics.
 """
 
-import logging
-from typing import Dict, Any, Optional
-import json
 from datetime import datetime
-
 from src.monitoring.agent_health_monitor import AgentHealthMonitor
 from src.monitoring.agent_recovery_manager import AgentRecoveryManager
+from typing import Dict, Any, Optional
+import json
+import logging
 
 logger = logging.getLogger(__name__)
 
 
 class MonitoringDashboard:
     """CLI dashboard for monitoring agent status and health"""
-    
+
     def __init__(self, health_monitor: AgentHealthMonitor, recovery_manager: AgentRecoveryManager):
         """
         Initialize the monitoring dashboard
-        
+
         Args:
             health_monitor: The agent health monitor instance
             recovery_manager: The agent recovery manager instance
         """
         self.health_monitor = health_monitor
         self.recovery_manager = recovery_manager
-        
+
         logger.info("MonitoringDashboard initialized")
-    
+
     def display_health_summary(self):
         """Display a summary of agent health status"""
         print("\n" + "="*80)
@@ -37,15 +36,15 @@ class MonitoringDashboard:
         print("="*80)
         print(f"Last Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print()
-        
+
         try:
             # Get health summary
             health_summary = self.health_monitor.get_agent_health_summary()
-            
+
             if 'error' in health_summary:
                 print(f"ERROR: {health_summary['error']}")
                 return
-            
+
             # Display overall statistics
             print("OVERALL STATUS:")
             print(f"  Total Agents:     {health_summary['total_agents']}")
@@ -54,7 +53,7 @@ class MonitoringDashboard:
             print(f"  Stagnant Agents:   {health_summary['stagnant_agents']}")
             print(f"  Error Agents:      {health_summary['error_agents']}")
             print()
-            
+
             # Display individual agent details
             print("AGENT DETAILS:")
             for agent_name, details in health_summary['agent_details'].items():
@@ -65,14 +64,14 @@ class MonitoringDashboard:
                     health_indicator = "⊘"
                 elif details['health_status'] == 'STAGNANT':
                     health_indicator = "◐"
-                
+
                 print(f"  {health_indicator} {agent_name:<15} | "
                       f"Status: {details['worker_status']:<8} | "
                       f"Progress: {details['overall_progress']:>3}% | "
                       f"Task: {details['current_task'][:30]}{'...' if len(details['current_task']) > 30 else ''}")
-            
+
             print()
-            
+
             # Display recent recovery actions if any
             recovery_summary = self.recovery_manager.get_recovery_summary()
             if recovery_summary['total_recovery_attempts'] > 0:
@@ -82,34 +81,34 @@ class MonitoringDashboard:
                 print(f"  Failed:            {recovery_summary['failed_recoveries']}")
                 print(f"  Escalations:       {recovery_summary['escalations']}")
                 print()
-                
+
         except Exception as e:
             print(f"ERROR displaying health summary: {e}")
             logger.error(f"Error displaying health summary: {e}")
-    
+
     def display_agent_details(self, agent_name: str):
         """
         Display detailed information for a specific agent
-        
+
         Args:
             agent_name: Name of the agent to display details for
         """
         print(f"\nAGENT DETAILS: {agent_name}")
         print("-" * 50)
-        
+
         try:
             # Get agent status
             agent_status = self.health_monitor.agent_manager.get_agent_status(agent_name)
             if not agent_status:
                 print(f"No status found for agent {agent_name}")
                 return
-            
+
             # Display basic status
             print(f"Role: {agent_status.get('role', 'Unknown')}")
             print(f"Worker Status: {agent_status.get('worker_status', 'Unknown')}")
             print(f"Current Task: {agent_status.get('current_task', 'None')}")
             print()
-            
+
             # Display expertise
             expertise = agent_status.get('expertise', [])
             if expertise:
@@ -119,13 +118,13 @@ class MonitoringDashboard:
                 if len(expertise) > 5:
                     print(f"  ... and {len(expertise) - 5} more")
                 print()
-            
+
             # Display recent activity
             last_response = agent_status.get('last_response')
             if last_response:
                 print(f"Last Response: {last_response}")
                 print()
-            
+
             # Display task progress if available
             task_progress = self.health_monitor.task_tracker.get_task_progress(agent_name)
             if task_progress:
@@ -133,7 +132,7 @@ class MonitoringDashboard:
                 print(f"  Overall Progress: {task_progress.get('overall_progress', 0)}%")
                 print(f"  Current Work: {task_progress.get('current_work', 'Unknown')[:50]}...")
                 print()
-                
+
                 # Display file status
                 file_status = task_progress.get('file_status', {})
                 if file_status:
@@ -143,7 +142,7 @@ class MonitoringDashboard:
                     if len(file_status) > 5:
                         print(f"  ... and {len(file_status) - 5} more files")
                     print()
-            
+
             # Display recovery history
             recovery_history = self.recovery_manager.get_recovery_history(agent_name)
             actions = recovery_history.get(agent_name, [])
@@ -157,20 +156,20 @@ class MonitoringDashboard:
                     success = "✓" if action.get('success', False) else "✗"
                     print(f"  [{timestamp}] {success} {anomalies} -> {action.get('action_taken', 'Unknown')}")
                 print()
-                
+
         except Exception as e:
             print(f"ERROR displaying agent details: {e}")
             logger.error(f"Error displaying agent details for {agent_name}: {e}")
-    
+
     def display_system_statistics(self):
         """Display overall system statistics"""
         print("\nSYSTEM STATISTICS")
         print("-" * 50)
-        
+
         try:
             # Get chat statistics
             chat_stats = self.health_monitor.agent_manager.get_chat_statistics()
-            
+
             print("CHAT STATISTICS:")
             print(f"  Total Agents:      {chat_stats.get('total_agents', 0)}")
             print(f"  Working Agents:    {chat_stats.get('working_agents', 0)}")
@@ -179,7 +178,7 @@ class MonitoringDashboard:
             print(f"  Pending Help:      {chat_stats.get('pending_help_requests', 0)}")
             print(f"  Chat Connected:     {'Yes' if chat_stats.get('chat_connected', False) else 'No'}")
             print()
-            
+
             # Get recovery summary
             recovery_summary = self.recovery_manager.get_recovery_summary()
             print("RECOVERY STATISTICS:")
@@ -188,11 +187,11 @@ class MonitoringDashboard:
             print(f"  Failed:            {recovery_summary['failed_recoveries']}")
             print(f"  Escalations:       {recovery_summary['escalations']}")
             print()
-            
+
         except Exception as e:
             print(f"ERROR displaying system statistics: {e}")
             logger.error(f"Error displaying system statistics: {e}")
-    
+
     def display_help(self):
         """Display help information"""
         print("\nMONITORING DASHBOARD COMMANDS:")
@@ -203,16 +202,16 @@ class MonitoringDashboard:
         print("  help        - Display this help message")
         print("  quit        - Exit the dashboard")
         print()
-    
+
     def run_interactive_dashboard(self):
         """Run the interactive dashboard CLI"""
         print("Agent Monitoring Dashboard")
         print("Type 'help' for available commands")
-        
+
         while True:
             try:
                 command = input("\nmonitor> ").strip().lower()
-                
+
                 if command == 'quit' or command == 'exit':
                     print("Exiting monitoring dashboard...")
                     break
@@ -231,7 +230,7 @@ class MonitoringDashboard:
                 else:
                     print(f"Unknown command: {command}")
                     print("Type 'help' for available commands")
-                    
+
             except KeyboardInterrupt:
                 print("\n\nExiting monitoring dashboard...")
                 break

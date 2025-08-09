@@ -3,11 +3,10 @@
 Main entry point for the opencode-slack system.
 """
 
+from pathlib import Path
 import os
 import sys
-from pathlib import Path
 
-# Add the parent directory to the path so we can import our modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.managers.file_ownership import FileOwnershipManager
@@ -17,11 +16,11 @@ def main():
     """Main function to demonstrate the system"""
     print("=== opencode-slack System ===")
     print("Initializing components...")
-    
+
     # Initialize core components
     file_manager = FileOwnershipManager(":memory:")  # Use in-memory database for demo
     task_tracker = TaskProgressTracker("/tmp/opencode_sessions")  # Use temp directory for demo
-    
+
     print("✅ System initialized successfully!")
     print("\nAvailable components:")
     print("- FileOwnershipManager: Manages file locks and ownership")
@@ -30,13 +29,13 @@ def main():
     print("- CLI Server: Command-line interface for local testing")
     print("- Configuration system: Environment-based configuration")
     print("- Logging system: Comprehensive logging")
-    
+
     print("\nTo use the CLI server:")
     print("  python3 src/cli_server.py")
-    
+
     print("\nTo run demo:")
     print("  ./demo_cli.sh")
-    
+
     print("\nSystem is ready for use!")
     print("Import the components in your code to start managing employees.")
 

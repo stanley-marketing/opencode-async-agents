@@ -1,0 +1,353 @@
+# WebSocket Security Configuration
+# Production-ready security settings for WebSocket communication
+
+# Authentication Settings
+authentication:
+  # Session timeout in minutes
+  session_timeout: 30
+  
+  # Maximum sessions per user
+  max_sessions_per_user: 5
+  
+  # JWT token expiry in hours
+  jwt_expiry_hours: 24
+  
+  # Supported authentication methods
+  methods:
+    - jwt
+    - api_key
+    - session
+  
+  # Password requirements (for future user registration)
+  password_policy:
+    min_length: 12
+    require_uppercase: true
+    require_lowercase: true
+    require_numbers: true
+    require_special_chars: true
+    max_age_days: 90
+
+# Rate Limiting Configuration
+rate_limiting:
+  # Messages per minute per connection
+  messages_per_minute: 60
+  
+  # Authentication attempts per minute per IP
+  auth_attempts_per_minute: 5
+  
+  # Maximum message size in bytes
+  max_message_size: 8192
+  
+  # Maximum connections per IP
+  max_connections_per_ip: 10
+  
+  # Rate limit windows in seconds
+  windows:
+    auth_failures: 300    # 5 minutes
+    message_spam: 60      # 1 minute
+    connection_flood: 600 # 10 minutes
+
+# Input Validation Settings
+validation:
+  # Maximum field lengths
+  max_lengths:
+    text: 4000
+    title: 200
+    description: 2000
+    command: 100
+    user_id: 50
+    token: 1000
+    api_key: 100
+  
+  # Allowed HTML tags for rich content
+  allowed_html_tags:
+    - b
+    - i
+    - u
+    - strong
+    - em
+    - code
+    - pre
+    - blockquote
+    - p
+    - br
+    - span
+    - div
+    - a
+    - ul
+    - ol
+    - li
+  
+  # Allowed HTML attributes
+  allowed_html_attributes:
+    a: [href, title]
+    span: [class]
+    div: [class]
+    code: [class]
+    pre: [class]
+  
+  # Blocked URL schemes
+  blocked_url_schemes:
+    - javascript
+    - vbscript
+    - data
+    - file
+    - ftp
+  
+  # Blocked domains/IPs
+  blocked_domains:
+    - localhost
+    - 127.0.0.1
+    - "::1"
+  
+  # Private IP ranges to block
+  blocked_ip_ranges:
+    - "192.168.0.0/16"
+    - "10.0.0.0/8"
+    - "172.16.0.0/12"
+
+# Security Monitoring
+monitoring:
+  # Anomaly detection thresholds (per hour)
+  anomaly_thresholds:
+    auth_failures: 50
+    rate_limit_violations: 200
+    invalid_messages: 100
+    suspicious_patterns: 20
+    new_ips: 100
+  
+  # Auto-blocking thresholds
+  auto_block:
+    # Block IP after this many violations
+    violation_threshold: 10
+    
+    # Block duration in hours
+    block_duration: 24
+    
+    # Events that trigger auto-blocking
+    blocking_events:
+      - auth_failures
+      - rate_limit_violations
+      - csrf_violations
+      - permission_violations
+  
+  # Alert configuration
+  alerts:
+    # Cooldown period between alerts (seconds)
+    cooldown_period: 300
+    
+    # Events that trigger immediate alerts
+    immediate_alert_events:
+      - admin_command
+      - system_breach_attempt
+      - mass_auth_failure
+      - anomaly_detected
+    
+    # Alert severity levels
+    severity_levels:
+      info: 0
+      warning: 1
+      critical: 2
+      emergency: 3
+
+# Audit Logging
+audit_logging:
+  # Log directory
+  log_directory: "logs/security"
+  
+  # Maximum log file size (MB)
+  max_log_size: 100
+  
+  # Maximum number of rotated log files
+  max_log_files: 10
+  
+  # Log rotation interval (hours)
+  rotation_interval: 24
+  
+  # Events to log for compliance
+  compliance_events:
+    - data_access
+    - data_modification
+    - admin_actions
+    - authentication
+    - authorization_failures
+    - system_changes
+  
+  # Log levels for different event types
+  log_levels:
+    auth_success: info
+    auth_failure: warning
+    permission_denied: warning
+    admin_action: warning
+    system_error: error
+    security_violation: critical
+
+# CSRF Protection
+csrf:
+  # Token expiry time (hours)
+  token_expiry: 1
+  
+  # Operations requiring CSRF protection
+  protected_operations:
+    - create_task
+    - update_task
+    - delete_task
+    - create_employee
+    - update_employee
+    - delete_employee
+    - admin_command
+    - system_command
+  
+  # Token generation settings
+  token_length: 32
+  token_algorithm: "urlsafe"
+
+# Encryption Settings
+encryption:
+  # Algorithm for sensitive data encryption
+  algorithm: "AES-256-GCM"
+  
+  # Key derivation settings
+  key_derivation:
+    algorithm: "PBKDF2"
+    iterations: 100000
+    salt_length: 16
+  
+  # Fields to encrypt in storage
+  encrypted_fields:
+    - password_hash
+    - session_tokens
+    - api_keys
+    - sensitive_user_data
+
+# Role-Based Access Control
+rbac:
+  # Role hierarchy (higher roles inherit lower role permissions)
+  role_hierarchy:
+    admin:
+      - admin
+      - moderator
+      - user
+    moderator:
+      - moderator
+      - user
+    user:
+      - user
+    guest:
+      - guest
+  
+  # Default permissions by role
+  default_permissions:
+    admin:
+      - "*"  # All permissions
+    moderator:
+      - "chat.*"
+      - "tasks.read"
+      - "tasks.create"
+      - "tasks.update"
+      - "employees.read"
+      - "monitoring.read"
+    user:
+      - "chat.send"
+      - "chat.read"
+      - "tasks.read"
+      - "tasks.create"
+      - "employees.read"
+    guest:
+      - "chat.read"
+  
+  # Permission categories
+  permission_categories:
+    chat:
+      - send
+      - read
+      - moderate
+    tasks:
+      - create
+      - read
+      - update
+      - delete
+      - assign
+    employees:
+      - create
+      - read
+      - update
+      - delete
+    admin:
+      - execute
+      - configure
+      - monitor
+    system:
+      - execute
+      - configure
+      - backup
+      - restore
+
+# Security Headers and Policies
+security_policies:
+  # Content Security Policy
+  csp:
+    default_src: "'self'"
+    script_src: "'self' 'unsafe-inline'"
+    style_src: "'self' 'unsafe-inline'"
+    img_src: "'self' data: https:"
+    connect_src: "'self' wss: ws:"
+    font_src: "'self'"
+    object_src: "'none'"
+    media_src: "'self'"
+    frame_src: "'none'"
+  
+  # CORS settings
+  cors:
+    allowed_origins:
+      - "https://localhost:3000"
+      - "https://127.0.0.1:3000"
+    allowed_methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+    allowed_headers:
+      - "Content-Type"
+      - "Authorization"
+      - "X-API-Key"
+      - "X-CSRF-Token"
+    max_age: 86400
+  
+  # Security headers
+  headers:
+    x_frame_options: "DENY"
+    x_content_type_options: "nosniff"
+    x_xss_protection: "1; mode=block"
+    strict_transport_security: "max-age=31536000; includeSubDomains"
+    referrer_policy: "strict-origin-when-cross-origin"
+
+# Development vs Production Settings
+environment_overrides:
+  development:
+    rate_limiting:
+      messages_per_minute: 120  # More lenient for development
+      auth_attempts_per_minute: 10
+    
+    monitoring:
+      auto_block:
+        violation_threshold: 20  # Higher threshold for development
+    
+    validation:
+      blocked_domains: []  # Allow localhost in development
+      blocked_ip_ranges: []
+  
+  production:
+    authentication:
+      session_timeout: 15  # Shorter sessions in production
+      max_sessions_per_user: 3
+    
+    rate_limiting:
+      messages_per_minute: 30  # Stricter in production
+      auth_attempts_per_minute: 3
+    
+    monitoring:
+      auto_block:
+        violation_threshold: 5  # Lower threshold for production
+        block_duration: 48  # Longer blocks in production

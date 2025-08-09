@@ -2,17 +2,16 @@
 ReAct Agent using LangChain structured output for intelligent task handling and project interaction
 """
 
-import os
-import logging
-from typing import Dict, Any, Optional, Union, List
+from ..services.llm_service import LLMService
+from .agent_tools import get_agent_tools
 from dotenv import load_dotenv
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
-
-from .agent_tools import get_agent_tools
-from ..services.llm_service import LLMService
+from typing import Dict, Any, Optional, Union, List
+import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +39,8 @@ class AgentOutput(BaseModel):
 
 class ReActAgent:
     """ReAct agent using structured output for handling user questions and project tasks"""
-    
-    def __init__(self, 
+
+    def __init__(self,
                  employee_name: str,
                  role: str,
                  expertise: list,
@@ -55,47 +54,47 @@ class ReActAgent:
         self.project_context = project_context or self._get_default_project_context()
         self.memory_manager = memory_manager
         self.task_tracker = task_tracker
-        
+
         # Initialize LLM service
         self.llm_service = LLMService()
-        
+
         # Initialize LangChain components
         self.llm = ChatOpenAI(
             model="o4-mini",
             openai_api_key=os.getenv("OPENAI_API_KEY"),
             temperature=1
         )
-        
+
         # Get tools
         self.tools = get_agent_tools(task_tracker=self.task_tracker)
-        
+
         # Create structured output LLM
         self.structured_llm = self.llm.with_structured_output(AgentOutput)
-        
+
         # Create different prompts for different modes
         self.forward_prompt = self._create_react_prompt("forward")
-        self.backward_prompt = self._create_react_prompt("backward") 
+        self.backward_prompt = self._create_react_prompt("backward")
         self.status_prompt = self._create_react_prompt("status")
-        
+
         # Create different agents for different modes
         self.forward_agent = create_tool_calling_agent(
             llm=self.llm,
             tools=self.tools,
             prompt=self.forward_prompt
         )
-        
+
         self.backward_agent = create_tool_calling_agent(
             llm=self.llm,
             tools=self.tools,
             prompt=self.backward_prompt
         )
-        
+
         self.status_agent = create_tool_calling_agent(
             llm=self.llm,
             tools=self.tools,
             prompt=self.status_prompt
         )
-        
+
         # Create agent executors for different modes
         self.forward_executor = AgentExecutor(
             agent=self.forward_agent,
@@ -106,7 +105,7 @@ class ReActAgent:
             max_execution_time=30,  # 30 second timeout
             early_stopping_method="force"  # Force stop when max_iterations reached
         )
-        
+
         self.backward_executor = AgentExecutor(
             agent=self.backward_agent,
             tools=self.tools,
@@ -116,7 +115,7 @@ class ReActAgent:
             max_execution_time=20,  # 20 second timeout
             early_stopping_method="force"  # Force stop when max_iterations reached
         )
-        
+
         self.status_executor = AgentExecutor(
             agent=self.status_agent,
             tools=self.tools,
@@ -126,7 +125,7 @@ class ReActAgent:
             max_execution_time=15,  # 15 second timeout
             early_stopping_method="force"  # Force stop when max_iterations reached
         )
-    
+
     def _get_shared_prompt_components(self):
         """Get shared prompt components used across different modes"""
         # Get memory context if available
@@ -134,7 +133,7 @@ class ReActAgent:
         if self.memory_manager:
             memory_summary = self.memory_manager.get_memory_summary()
             memory_context = f"Recent Memory Summary: {memory_summary}"
-        
+
         # Get conversation history if available
         conversation_history = "No recent conversations"
         if self.memory_manager:
@@ -144,7 +143,7 @@ class ReActAgent:
                 for conv in memory_data["recent_conversations"]:
                     conv_lines.append(f"{conv['timestamp']}: {conv['sender']}: {conv['message']}")
                 conversation_history = "\n".join(conv_lines)
-        
+
         return {
             "employee_name": self.employee_name,
             "role": self.role,
@@ -158,7 +157,7 @@ class ReActAgent:
 
     def _create_react_prompt(self, mode: str = "forward") -> ChatPromptTemplate:
         """Create the ReAct prompt template for different modes"""
-        
+
         shared_base = """You are {employee_name}, a {role} with expertise in {expertise}.
 
 Project Context:
@@ -250,16 +249,16 @@ Current Status Guidelines:
 
         # Get shared components
         shared_components = self._get_shared_prompt_components()
-        
+
         # Format the system message with shared components
         system_message = template.format(**shared_components)
-        
+
         return ChatPromptTemplate.from_messages([
             ("system", system_message),
             ("human", "{input}"),
             ("placeholder", "{agent_scratchpad}")
         ])
-    
+
     def _get_default_project_context(self) -> str:
         """Get default project context"""
         return """
@@ -275,7 +274,7 @@ The project uses Python with Flask for the web server, Slack SDK for Slack integ
 
 Current focus areas include improving agent communication, task assignment workflows, and project file management.
 """
-    
+
     def handle_message(self, message: str, context: Dict[str, Any] = None, mode: str = "forward") -> str:
         """Handle a user message using the ReAct agent in different modes"""
         try:
@@ -284,7 +283,7 @@ Current focus areas include improving agent communication, task assignment workf
                 enhanced_message = f"Context: {context}\n\nUser Message: {message}"
             else:
                 enhanced_message = message
-            
+
             # Choose the appropriate executor based on mode
             if mode == "forward":
                 executor = self.forward_executor
@@ -294,23 +293,23 @@ Current focus areas include improving agent communication, task assignment workf
                 executor = self.status_executor
             else:
                 executor = self.forward_executor  # Default to forward
-            
+
             # Execute the agent
             result = executor.invoke({"input": enhanced_message})
-            
+
             output = result.get("output", "I couldn't process that request.")
-            
+
             # Ensure we have a meaningful response
             if not output or not output.strip():
                 return "I'm here and ready to help! Could you please provide more details about what you'd like me to do?"
-            
+
             # Clean up verbose output if needed
             if "Agent stopped due to iteration limit" in output or "Agent stopped due to iteration limit or time limit" in output:
                 # Check if the agent started a task (check the full output first)
                 if "started coding task" in output.lower() or "task id:" in output.lower():
                     # Provide a proper final answer for task initiation
                     return f"I've started working on generating the coverage report. I'll analyze the test suite and report back with the current coverage metrics when it's complete."
-                
+
                 # Extract just the meaningful part before the limit message
                 lines = output.split('\n')
                 meaningful_lines = []
@@ -324,17 +323,17 @@ Current focus areas include improving agent communication, task assignment workf
                     # Ensure response is not empty
                     if response.strip():
                         return response
-            
+
             # Check if the output indicates a task was started
             if "started coding task" in output.lower() or "task id:" in output.lower():
                 return f"I've started working on this task. I'll report back with the results when it's complete."
-            
+
             # Ensure response is not just a copy of the input
             if output.strip().lower() == message.strip().lower():
                 return f"I understand you're asking about: {message[:50]}... How specifically can I help with this?"
-            
+
             return output
-            
+
         except Exception as e:
             logger.warning(f"ReAct agent error for {self.employee_name} in {mode} mode: {str(e)}")
             # Check if this is a tool validation error
@@ -357,7 +356,7 @@ Current focus areas include improving agent communication, task assignment workf
                 return "I encountered a processing issue. Let me try a simpler approach to help you."
             # Provide a fallback response
             return "I'm here and ready to help! Could you please rephrase your request or provide more details about what you'd like me to do?"
-    
+
     def analyze_task_results(self, task_output: str, task_description: str | None = None) -> str:
         """Analyze task results and provide a summary (backward mode)"""
         analysis_prompt = (
@@ -388,12 +387,12 @@ Current focus areas include improving agent communication, task assignment workf
                     "I gathered this by directly parsing the pytest coverage output."
                 )
             return "Task completed but could not determine coverage from output."
-    
+
     def explain_current_status(self, employee_name: str) -> str:
         """Explain what the agent is currently working on (status mode)"""
         status_prompt = f"The user is asking what {employee_name} is currently working on. Please check the current status and explain what's happening."
         return self.handle_message(status_prompt, mode="status")
-    
+
     def get_agent_info(self) -> Dict[str, Any]:
         """Get information about the agent"""
         return {
@@ -403,7 +402,7 @@ Current focus areas include improving agent communication, task assignment workf
             "available_tools": [tool.name for tool in self.tools],
             "model_info": self.llm_service.get_model_info()
         }
-    
+
     def update_project_context(self, new_context: str):
         """Update the project context"""
         self.project_context = new_context

@@ -42,21 +42,21 @@ class CLIServer:
             print("⚠️  Install python-dotenv: pip install python-dotenv")
         except Exception as e:
             print(f"⚠️  Could not load .env: {e}")
-        
+
         # Configure logging for CLI mode (no console output)
         setup_logging(cli_mode=True)
-        
+
         self.file_manager = FileOwnershipManager(db_path)
         self.session_manager = OpencodeSessionManager(self.file_manager, sessions_dir, quiet_mode=True)
         self.task_tracker = self.session_manager.task_tracker  # Use the session manager's task tracker
-        
+
         # Initialize chat system
         self.telegram_manager = TelegramManager()
         self.agent_manager = AgentManager(self.file_manager, self.telegram_manager)
         self.agent_bridge = AgentBridge(self.session_manager, self.agent_manager)
         self.chat_enabled = False
         self.running = True
-        
+
         self.command_history_file = os.path.expanduser("~/.opencode_slack_history")
         self.load_history()
         self._setup_autocomplete()
@@ -66,20 +66,20 @@ class CLIServer:
         print("Use TAB for command completion")
         print("Type 'quit' to exit")
         print()
-        
+
         # Set up agent monitoring system
         self.agent_manager.setup_monitoring_system(self.task_tracker, self.session_manager)
-        
+
         # Start agent bridge monitoring
         self.agent_bridge.start_monitoring()
-        
+
         # Auto-start chat system if configured (after initial setup)
         self._auto_start_chat_if_configured()
-    
+
     def _auto_start_chat_if_configured(self):
         """Auto-start chat system if properly configured"""
         from src.chat.chat_config import config
-        
+
         if config.is_configured():
             try:
                 self.telegram_manager.start_polling()
@@ -99,7 +99,7 @@ class CLIServer:
         """Load command history from file"""
         if not readline_available:
             return
-            
+
         try:
             if os.path.exists(self.command_history_file):
                 readline.read_history_file(self.command_history_file)
@@ -110,7 +110,7 @@ class CLIServer:
         """Set up command autocompletion using readline"""
         if not readline_available:
             return
-            
+
         # List of available commands for autocompletion
         self.commands = [
             'help', 'quit', 'exit', 'hire', 'fire', 'assign', 'start', 'stop',
@@ -120,7 +120,7 @@ class CLIServer:
             'files', 'clear', 'history', 'models', 'model-set', 'hire-specialist',
             'monitor', 'monitor-dashboard'
         ]
-        
+
         # Set up readline completion
         readline.set_completer(self._autocomplete)
         readline.parse_and_bind("tab: complete")
@@ -131,10 +131,10 @@ class CLIServer:
             # This is the first time calling autocomplete for this text
             line = readline.get_line_buffer()
             words = line.split()
-            
+
             # Check if we're at the end of the line with a space
             ends_with_space = line.endswith(' ')
-            
+
             # If we're at the beginning of the line
             if not words:
                 self.matches = self.commands[:]
@@ -145,7 +145,7 @@ class CLIServer:
                 # Autocomplete command arguments based on the command
                 command = words[0].lower()
                 self.matches = self._get_command_args_autocomplete(command, words, text, ends_with_space)
-        
+
         # Return the match for the current state, or None if no more matches
         try:
             return self.matches[state]
@@ -317,7 +317,7 @@ class CLIServer:
         except Exception:
             # If there's any error, return empty list to avoid breaking the CLI
             pass
-            
+
         # Default: return empty list for no specific autocomplete
         return []
 
@@ -325,7 +325,7 @@ class CLIServer:
         """Save command history to file"""
         if not readline_available:
             return
-            
+
         try:
             readline.write_history_file(self.command_history_file)
         except:
@@ -356,12 +356,12 @@ class CLIServer:
         except ValueError as e:
             print(f"Error parsing command: {e}")
             return
-        
+
         if not parts:
             return
-            
+
         command = parts[0].lower()
-        
+
         if command == "help":
             self.show_help()
         elif command == "quit" or command == "exit":
@@ -486,49 +486,49 @@ class CLIServer:
             print("Usage: assign <name> <task_description> [model] [mode]")
             print("Example: assign sarah 'implement user auth' openrouter/qwen/qwen3-coder build")
             return
-        
+
         name = args[0]
         task_description = args[1]
         model = args[2] if len(args) > 2 else None  # Use employee's default model if not specified
         mode = args[3] if len(args) > 3 else "build"
-        
+
         # Make sure employee exists
         employees = self.file_manager.list_employees()
         employee_names = [emp['name'] for emp in employees]
-        
+
         if name not in employee_names:
             print(f"Employee {name} not found. Hiring as developer...")
             if not self.file_manager.hire_employee(name, "developer"):
                 print(f"Failed to hire {name}")
                 return
             print(f"✅ Hired {name} as developer")
-        
+
         # Start real opencode session with callback to reprint prompt
         session_id = self.session_manager.start_employee_task(
             name, task_description, model, mode
         )
-        
+
         if session_id:
             print(f"🚀 Started REAL opencode session for {name}")
             print(f"📋 Session ID: {session_id}")
             print("   (Task running in background - use 'status' to check progress)")
         else:
             print(f"❌ Failed to start opencode session for {name}")
-    
+
     def handle_stop(self, args):
         """Handle stop command - stop an employee's opencode session"""
         if len(args) < 1:
             print("Usage: stop <name>")
             return
-        
+
         name = args[0]
         self.session_manager.stop_employee_task(name)
-    
+
     def handle_status(self, args):
         """Handle status command - show comprehensive system status"""
         print("📊 SYSTEM STATUS OVERVIEW")
         print("=" * 50)
-        
+
         # Show active sessions
         active_sessions = self.session_manager.get_active_sessions()
         if active_sessions:
@@ -546,7 +546,7 @@ class CLIServer:
                     print(f"     🔒 Files: {files_display}")
         else:
             print("\n✅ No active sessions")
-        
+
         # Show file locks
         all_files = self.file_manager.get_all_locked_files()
         if all_files:
@@ -557,7 +557,7 @@ class CLIServer:
                     print(f"     📝 Task: {file_info['task_description'][:60]}{'...' if len(file_info['task_description']) > 60 else ''}")
         else:
             print("\n🔓 No files currently locked")
-        
+
         # Show pending requests
         pending_requests = self.file_manager.get_pending_requests()
         if pending_requests:
@@ -568,7 +568,7 @@ class CLIServer:
                 print(f"     📝 Reason: {req['task_description']}")
         else:
             print("\n📭 No pending requests")
-        
+
         # Show all employees
         employees = self.file_manager.list_employees()
         if employees:
@@ -582,17 +582,17 @@ class CLIServer:
                     print(f"  👤 {emp['name']} ({emp['role']}) - Available")
         else:
             print("\n👥 No employees hired")
-        
+
         print("\n" + "=" * 50)
-    
+
     def handle_sessions(self, args):
         """Handle sessions command - show active opencode sessions"""
         active_sessions = self.session_manager.get_active_sessions()
-        
+
         if not active_sessions:
             print("No active opencode sessions")
             return
-        
+
         print("🔥 Active opencode sessions:")
         for employee_name, session_info in active_sessions.items():
             status = "🔥 RUNNING" if session_info['is_running'] else "⏸️  PAUSED"
@@ -608,26 +608,26 @@ class CLIServer:
         """
         # Simple keyword-based file determination
         files = []
-        
+
         if "auth" in task_description.lower() or "authentication" in task_description.lower():
             files.extend(["src/auth.py", "src/user.py", "src/jwt.py"])
-        
+
         if "api" in task_description.lower() or "endpoint" in task_description.lower():
             files.extend(["src/api.py", "src/routes.py"])
-        
+
         if "database" in task_description.lower() or "db" in task_description.lower():
             files.extend(["src/database.py", "src/models.py"])
-        
+
         if "test" in task_description.lower() or "testing" in task_description.lower():
             files.extend(["tests/test_auth.py", "tests/test_api.py"])
-        
+
         if "config" in task_description.lower() or "configuration" in task_description.lower():
             files.extend(["config/settings.py", "config/database.py"])
-        
+
         # Default files if no specific ones found
         if not files:
             files = ["src/main.py", "src/utils.py"]
-        
+
         return list(set(files))  # Remove duplicates
 
     def handle_history(self, args):
@@ -635,7 +635,7 @@ class CLIServer:
         if not readline_available:
             print("History not available (readline not installed)")
             return
-            
+
         try:
             history_len = readline.get_current_history_length()
             start_index = max(1, history_len - 10)  # Show last 10 commands
@@ -653,23 +653,23 @@ class CLIServer:
             print("Usage: hire <name> <role> [smartness]")
             print("Smartness levels: smart | normal")
             return
-        
+
         name = args[0]
         role = args[1]
         smartness = args[2] if len(args) > 2 else "normal"  # default to normal
-        
+
         # Validate smartness level
         if smartness not in ["smart", "normal"]:
             print("Invalid smartness level. Use 'smart' or 'normal'. Defaulting to 'normal'.")
             smartness = "normal"
-        
+
         if self.file_manager.hire_employee(name, role, smartness):
             print(f"✅ Successfully hired {name} as a {role} ({smartness} smartness)!")
-            
+
             # Create communication agent
             expertise = self.agent_manager._get_expertise_for_role(role)
             self.agent_manager.create_agent(name, role, expertise)
-            
+
             # Show updated employee count
             employees = self.file_manager.list_employees()
             print(f"📊 Total employees: {len(employees)}")
@@ -682,16 +682,16 @@ class CLIServer:
         if len(args) < 1:
             print("Usage: fire <name>")
             return
-        
+
         name = args[0]
-        
+
         # Stop any active sessions first
         if name in self.session_manager.active_sessions:
             self.session_manager.stop_employee_task(name)
-        
+
         # Remove communication agent
         self.agent_manager.remove_agent(name)
-        
+
         if self.file_manager.fire_employee(name, self.session_manager.task_tracker):
             print(f"✅ Successfully fired {name} and cleaned up their session data.")
             print(f"🤖 Communication agent removed for {name}")
@@ -703,22 +703,22 @@ class CLIServer:
         if len(args) < 3:
             print("Usage: lock <name> <file1,file2,...> <description>")
             return
-        
+
         name = args[0]
         files_str = args[1]
         description = " ".join(args[2:])
-        
+
         files = [f.strip() for f in files_str.split(",")]
-        
+
         result = self.file_manager.lock_files(name, files, description)
-        
+
         # Create task file
         self.task_tracker.create_task_file(name, description, files)
-        
+
         print(f"Files locked for {name}:")
         for file_path, status in result.items():
             print(f"  - {file_path}: {status}")
-        
+
         if any("locked" in status for status in result.values()):
             print("✅ Files locked successfully!")
 
@@ -727,9 +727,9 @@ class CLIServer:
         if len(args) < 1:
             print("Usage: release <name> [files]")
             return
-        
+
         name = args[0]
-        
+
         if len(args) == 1:
             # Release all files
             released = self.file_manager.release_files(name)
@@ -751,13 +751,13 @@ class CLIServer:
         if len(args) < 3:
             print("Usage: request <name> <file> <reason>")
             return
-        
+
         requester = args[0]
         file_path = args[1]
         reason = " ".join(args[2:])
-        
+
         result = self.file_manager.request_file(requester, file_path, reason)
-        
+
         if result == "file_not_locked":
             print(f"❌ File {file_path} is not currently locked by anyone.")
         elif result == "already_owner":
@@ -773,13 +773,13 @@ class CLIServer:
         if len(args) < 1:
             print("Usage: approve <request_id>")
             return
-        
+
         try:
             request_id = int(args[0])
         except ValueError:
             print("❌ Request ID must be a number")
             return
-        
+
         if self.file_manager.approve_request(request_id):
             print(f"✅ Request {request_id} approved successfully!")
         else:
@@ -790,13 +790,13 @@ class CLIServer:
         if len(args) < 1:
             print("Usage: deny <request_id>")
             return
-        
+
         try:
             request_id = int(args[0])
         except ValueError:
             print("❌ Request ID must be a number")
             return
-        
+
         if self.file_manager.deny_request(request_id):
             print(f"✅ Request {request_id} denied successfully!")
         else:
@@ -810,7 +810,7 @@ class CLIServer:
             if not employees:
                 print("❌ No employees found.")
                 return
-            
+
             print("Employee Progress:")
             for employee in employees:
                 name = employee['name']
@@ -837,10 +837,10 @@ class CLIServer:
         if len(args) < 1:
             print("Usage: task <employee_name>")
             return
-        
+
         name = args[0]
         task_file = f"sessions/{name}/current_task.md"
-        
+
         try:
             with open(task_file, 'r') as f:
                 content = f.read()
@@ -865,13 +865,13 @@ class CLIServer:
         if not args:
             print("Usage: chat <message>")
             return
-        
+
         message = " ".join(args)
-        
+
         if not self.telegram_manager.is_connected():
             print("❌ Chat system not connected. Use 'chat-start' first.")
             return
-        
+
         success = self.telegram_manager.send_message(message, "system")
         if success:
             print(f"✅ Message sent to chat: {message}")
@@ -883,14 +883,14 @@ class CLIServer:
         if self.chat_enabled:
             print("✅ Chat system is already running")
             return
-        
+
         from src.chat.chat_config import config
         if not config.is_configured():
             print("❌ Chat system not configured.")
             print("Please set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID environment variables.")
             print("See TELEGRAM_SETUP.md for instructions.")
             return
-        
+
         try:
             self.telegram_manager.start_polling()
             self.agent_bridge.start_monitoring()
@@ -906,7 +906,7 @@ class CLIServer:
         if not self.chat_enabled:
             print("❌ Chat system is not running")
             return
-        
+
         self.telegram_manager.stop_polling()
         self.chat_enabled = False
         print("🛑 Chat system stopped")
@@ -914,20 +914,20 @@ class CLIServer:
     def handle_chat_status(self, args):
         """Handle chat-status command"""
         from src.chat.chat_config import config
-        
+
         print("📊 CHAT SYSTEM STATUS")
         print("=" * 50)
-        
+
         # Configuration status
         print(f"🔧 Configuration: {'✅ Ready' if config.is_configured() else '❌ Not configured'}")
         print(f"🤖 Bot Token: {'✅ Set' if config.bot_token else '❌ Missing'}")
         print(f"💬 Chat ID: {'✅ Set' if config.chat_id else '❌ Missing'}")
-        
+
         # Connection status
         connected = self.telegram_manager.is_connected()
         print(f"🌐 Connection: {'✅ Connected' if connected else '❌ Disconnected'}")
         print(f"🔄 Polling: {'✅ Active' if self.chat_enabled else '❌ Stopped'}")
-        
+
         # Agent statistics
         stats = self.agent_manager.get_chat_statistics()
         print(f"👥 Total Agents: {stats['total_agents']}")
@@ -939,14 +939,14 @@ class CLIServer:
     def handle_agents(self, args):
         """Handle agents command - show communication agents status"""
         agents_status = self.agent_manager.get_agent_status()
-        
+
         if not agents_status:
             print("❌ No communication agents found")
             return
-        
+
         print("👥 COMMUNICATION AGENTS STATUS")
         print("=" * 50)
-        
+
         for name, status in agents_status.items():
             print(f"👤 {name} ({status['role']})")
             print(f"   Status: {status['worker_status']}")
@@ -962,12 +962,12 @@ class CLIServer:
     def handle_bridge(self, args):
         """Handle bridge command - show agent bridge status"""
         bridge_status = self.agent_bridge.get_bridge_status()
-        
+
         print("🌉 AGENT BRIDGE STATUS")
         print("=" * 50)
         print(f"🔄 Active Tasks: {bridge_status['active_tasks']}")
         print(f"⏰ Stuck Timers: {bridge_status['stuck_timers']}")
-        
+
         if bridge_status['tasks']:
             print("\n📋 CURRENT TASKS:")
             for employee, task_info in bridge_status['tasks'].items():
@@ -985,7 +985,7 @@ class CLIServer:
         if not employees:
             print("❌ No employees found.")
             return
-        
+
         print("Employees:")
         for employee in employees:
             print(f"  - {employee['name']} ({employee['role']})")
@@ -998,7 +998,7 @@ class CLIServer:
             if not employees:
                 print("❌ No employees found.")
                 return
-            
+
             print("Locked Files:")
             for employee in employees:
                 files = self.file_manager.get_employee_files(employee['name'])
@@ -1023,7 +1023,7 @@ class CLIServer:
         """Handle models command - show configured models"""
         print("🤖 Configured AI Models:")
         print("=" * 50)
-        
+
         models = models_config.get_all_models()
         for level, model_info in models.items():
             print(f"  {level.capitalize()} Level:")
@@ -1031,7 +1031,7 @@ class CLIServer:
             print(f"    Description: {model_info['description']}")
             print(f"    Cost Level: {model_info['cost_level']}")
             print()
-        
+
         print("💡 Usage:")
         print("  To set a model: model-set <level> <model_name>")
         print("  Example: model-set smart openrouter/anthropic/claude-3.5-sonnet")
@@ -1042,38 +1042,38 @@ class CLIServer:
             print("Usage: model-set <level> <model_name>")
             print("Example: model-set smart openrouter/anthropic/claude-3.5-sonnet")
             return
-        
+
         level = args[0]
         model_name = args[1]
-        
+
         # Validate level
         if level not in ["smart", "normal"]:
             print("Invalid level. Use 'smart' or 'normal'.")
             return
-        
+
         # Validate model (basic check)
         if not model_name:
             print("Model name cannot be empty.")
             return
-        
+
         # Update configuration
         description = f"{'High-performance' if level == 'smart' else 'Efficient'} model for {'complex planning and analysis' if level == 'smart' else 'code writing and execution'}"
         cost_level = "high" if level == "smart" else "low"
-        
+
         models_config.update_model(level, model_name, description, cost_level)
         print(f"✅ Updated {level} model to: {model_name}")
 
     def handle_hire_specialist(self, args):
         """Handle hire-specialist command - hire a specialized employee from a specific category"""
         from pathlib import Path
-        
+
         # Path to employee types directory
         employee_types_dir = Path(__file__).parent.parent / ".bmad-core" / "employee-types"
-        
+
         if not employee_types_dir.exists():
             print("❌ Employee types directory not found!")
             return
-        
+
         if len(args) < 1:
             # List available categories
             print("Available Employee Categories:")
@@ -1084,10 +1084,10 @@ class CLIServer:
             print("\nUsage: hire-specialist <category>")
             print("Example: hire-specialist engineering")
             return
-        
+
         category = args[0].lower().replace(" ", "-")
         category_dir = employee_types_dir / category
-        
+
         if not category_dir.exists():
             print(f"❌ Category '{category}' not found!")
             print("\nAvailable categories:")
@@ -1095,23 +1095,23 @@ class CLIServer:
             for cat in categories:
                 print(f"  - {cat.replace('-', ' ').title()}")
             return
-        
+
         # List available employee types in this category
         employee_types = [f.stem for f in category_dir.iterdir() if f.suffix == ".md"]
-        
+
         if not employee_types:
             print(f"❌ No employee types found in category '{category}'!")
             return
-        
+
         print(f"Available {category.replace('-', ' ').title()} Specialists:")
         print("=" * 50)
         for i, emp_type in enumerate(employee_types, 1):
             name = emp_type.replace("-", " ").title()
             print(f"  {i}. {name}")
-        
+
         print("\nUsage: hire <name> <specialty> [smartness]")
         print("Example: hire john frontend-developer smart")
-    
+
     def handle_monitor(self, args):
         """Handle monitor command - show agent monitoring dashboard"""
         # Try to import monitoring components
@@ -1122,14 +1122,14 @@ class CLIServer:
         except ImportError as e:
             print("❌ Monitoring system not available:", str(e))
             return
-        
+
         # Check if monitoring is set up
         if not hasattr(self, 'health_monitor') or not self.health_monitor:
             print("⚠️  Monitoring system not initialized")
             print("💡 Monitoring system is available but not initialized in this CLI session")
             print("   Start the full server to enable monitoring")
             return
-        
+
         # If we have args, treat it as interactive mode
         if args:
             # Interactive dashboard mode
@@ -1140,11 +1140,11 @@ class CLIServer:
             else:
                 print("❌ Interactive monitoring dashboard not available")
             return
-        
+
         # Static dashboard mode
         print("🔍 AGENT MONITORING DASHBOARD")
         print("=" * 50)
-        
+
         # Show health summary
         if hasattr(self, 'health_monitor') and self.health_monitor:
             health_summary = self.health_monitor.get_agent_health_summary()
@@ -1155,7 +1155,7 @@ class CLIServer:
                 print(f"  Stuck Agents:      {health_summary['stuck_agents']}")
                 print(f"  Stagnant Agents:   {health_summary['stagnant_agents']}")
                 print(f"  Error Agents:      {health_summary['error_agents']}")
-                
+
                 print("\nAGENT DETAILS:")
                 for agent_name, details in health_summary['agent_details'].items():
                     health_indicator = "✓"  # Healthy
@@ -1165,14 +1165,14 @@ class CLIServer:
                         health_indicator = "⊘"
                     elif details['health_status'] == 'STAGNANT':
                         health_indicator = "◐"
-                    
+
                     print(f"  {health_indicator} {agent_name:<15} | "
                           f"Status: {details['worker_status']:<8} | "
                           f"Progress: {details['overall_progress']:>3}% | "
                           f"Task: {details['current_task'][:30]}{'...' if len(details['current_task']) > 30 else ''}")
             else:
                 print(f"❌ Error: {health_summary['error']}")
-        
+
         # Show recovery summary
         if hasattr(self, 'recovery_manager') and self.recovery_manager:
             recovery_summary = self.recovery_manager.get_recovery_summary()

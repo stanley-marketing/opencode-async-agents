@@ -4,13 +4,13 @@ CLI client for opencode-slack system.
 Connects to the opencode-slack server and provides interactive commands.
 """
 
-import sys
-import os
-import json
-import requests
 from pathlib import Path
 from urllib.parse import urljoin
 import argparse
+import json
+import os
+import requests
+import sys
 
 try:
     import readline
@@ -21,20 +21,20 @@ except ImportError:
 
 class OpencodeSlackClient:
     """CLI client for opencode-slack server"""
-    
+
     def __init__(self, server_url="http://localhost:8080"):
         self.server_url = server_url.rstrip('/')
         self.running = True
         self.command_history_file = os.path.expanduser("~/.opencode_slack_client_history")
         self.load_history()
         self._setup_autocomplete()
-        
+
         # Test connection
         if not self._test_connection():
             print(f"❌ Cannot connect to server at {self.server_url}")
             print("   Make sure the server is running with: python -m src.server")
             sys.exit(1)
-        
+
         print(f"=== opencode-slack CLI Client ===")
         print(f"🔗 Connected to: {self.server_url}")
         print("Type 'help' for available commands")
@@ -42,7 +42,7 @@ class OpencodeSlackClient:
         print("Use TAB for command completion")
         print("Type 'quit' to exit")
         print()
-    
+
     def _test_connection(self):
         """Test connection to server"""
         try:
@@ -50,11 +50,11 @@ class OpencodeSlackClient:
             return response.status_code == 200
         except:
             return False
-    
+
     def _make_request(self, method, endpoint, data=None, params=None):
         """Make HTTP request to server"""
         url = urljoin(self.server_url + '/', endpoint.lstrip('/'))
-        
+
         try:
             if method.upper() == 'GET':
                 response = requests.get(url, params=params, timeout=30)
@@ -64,17 +64,17 @@ class OpencodeSlackClient:
                 response = requests.delete(url, timeout=30)
             else:
                 raise ValueError(f"Unsupported method: {method}")
-            
+
             return response
         except requests.exceptions.RequestException as e:
             print(f"❌ Connection error: {e}")
             return None
-    
+
     def load_history(self):
         """Load command history from file"""
         if not readline_available:
             return
-            
+
         try:
             if os.path.exists(self.command_history_file):
                 readline.read_history_file(self.command_history_file)
@@ -85,7 +85,7 @@ class OpencodeSlackClient:
         """Set up command autocompletion using readline"""
         if not readline_available:
             return
-            
+
         # List of available commands for autocompletion
         self.commands = [
             'help', 'quit', 'exit', 'hire', 'fire', 'assign', 'start', 'stop',
@@ -94,7 +94,7 @@ class OpencodeSlackClient:
             'agents', 'bridge', 'health', 'clear', 'history', 'chat-debug',
             'project-root', 'hire-specialist'
         ]
-        
+
         # Set up readline completion
         readline.set_completer(self._autocomplete)
         readline.parse_and_bind("tab: complete")
@@ -105,10 +105,10 @@ class OpencodeSlackClient:
             # This is the first time calling autocomplete for this text
             line = readline.get_line_buffer()
             words = line.split()
-            
+
             # Check if we're at the end of the line with a space
             ends_with_space = line.endswith(' ')
-            
+
             # If we're at the beginning of the line
             if not words:
                 self.matches = self.commands[:]
@@ -119,7 +119,7 @@ class OpencodeSlackClient:
                 # For client, we can't access server data directly, so provide basic completion
                 command = words[0].lower()
                 self.matches = self._get_command_args_autocomplete(command, words, text, ends_with_space)
-        
+
         # Return the match for the current state, or None if no more matches
         try:
             return self.matches[state]
@@ -281,7 +281,7 @@ class OpencodeSlackClient:
         except Exception:
             # If there's any error, return empty list to avoid breaking the CLI
             pass
-            
+
         # Default: return empty list for no specific autocomplete
         return []
 
@@ -289,12 +289,12 @@ class OpencodeSlackClient:
         """Save command history to file"""
         if not readline_available:
             return
-            
+
         try:
             readline.write_history_file(self.command_history_file)
         except:
             pass
-    
+
     def run(self):
         """Main client loop"""
         try:
@@ -311,7 +311,7 @@ class OpencodeSlackClient:
                     self.running = False
         finally:
             self.save_history()
-    
+
     def handle_command(self, command_line):
         """Handle a command from the user"""
         import shlex
@@ -320,12 +320,12 @@ class OpencodeSlackClient:
         except ValueError as e:
             print(f"Error parsing command: {e}")
             return
-        
+
         if not parts:
             return
-            
+
         command = parts[0].lower()
-        
+
         if command == "help":
             self.show_help()
         elif command == "quit" or command == "exit":
@@ -382,7 +382,7 @@ class OpencodeSlackClient:
         else:
             print(f"Unknown command: {command}")
             print("Type 'help' for available commands")
-    
+
     def show_help(self):
         """Show available commands"""
         print("🔥 OPENCODE-SLACK CLIENT - Available commands:")
@@ -424,21 +424,21 @@ class OpencodeSlackClient:
         print("  assign sarah 'implement user authentication'")
         print("  assign dev-2 'create API endpoints' claude-3.5")
         print("  status  # See complete system overview")
-    
+
     def handle_hire(self, args):
         """Handle hire command"""
         if len(args) < 2:
             print("Usage: hire <name> <role>")
             return
-        
+
         name = args[0]
         role = " ".join(args[1:])
-        
+
         response = self._make_request('POST', '/employees', {
             'name': name,
             'role': role
         })
-        
+
         if response and response.status_code == 200:
             data = response.json()
             print(f"✅ {data['message']}")
@@ -447,17 +447,17 @@ class OpencodeSlackClient:
             print(f"❌ {data.get('error', 'Unknown error')}")
         else:
             print("❌ Failed to communicate with server")
-    
+
     def handle_fire(self, args):
         """Handle fire command"""
         if len(args) < 1:
             print("Usage: fire <name>")
             return
-        
+
         name = args[0]
-        
+
         response = self._make_request('DELETE', f'/employees/{name}')
-        
+
         if response and response.status_code == 200:
             data = response.json()
             print(f"✅ {data['message']}")
@@ -466,26 +466,26 @@ class OpencodeSlackClient:
             print(f"❌ {data.get('error', 'Unknown error')}")
         else:
             print("❌ Failed to communicate with server")
-    
+
     def handle_assign(self, args):
         """Handle assign command"""
         if len(args) < 2:
             print("Usage: assign <name> <task_description> [model] [mode]")
             print("Example: assign sarah 'implement user auth' openrouter/qwen/qwen3-coder build")
             return
-        
+
         name = args[0]
         task_description = args[1]
         model = args[2] if len(args) > 2 else "openrouter/qwen/qwen3-coder"
         mode = args[3] if len(args) > 3 else "build"
-        
+
         response = self._make_request('POST', '/tasks', {
             'name': name,
             'task': task_description,
             'model': model,
             'mode': mode
         })
-        
+
         if response and response.status_code == 200:
             data = response.json()
             print(f"🚀 {data['message']}")
@@ -496,36 +496,36 @@ class OpencodeSlackClient:
             print(f"❌ {data.get('error', 'Unknown error')}")
         else:
             print("❌ Failed to communicate with server")
-    
+
     def handle_stop(self, args):
         """Handle stop command"""
         if len(args) < 1:
             print("Usage: stop <name>")
             return
-        
+
         name = args[0]
-        
+
         response = self._make_request('DELETE', f'/tasks/{name}')
-        
+
         if response and response.status_code == 200:
             data = response.json()
             print(f"✅ {data['message']}")
         else:
             print("❌ Failed to communicate with server")
-    
+
     def handle_status(self, args):
         """Handle status command"""
         response = self._make_request('GET', '/status')
-        
+
         if not response or response.status_code != 200:
             print("❌ Failed to get status")
             return
-        
+
         data = response.json()
-        
+
         print("📊 SYSTEM STATUS OVERVIEW")
         print("=" * 50)
-        
+
         # Show active sessions
         active_sessions = data.get('active_sessions', {})
         if active_sessions:
@@ -543,7 +543,7 @@ class OpencodeSlackClient:
                     print(f"     🔒 Files: {files_display}")
         else:
             print("\n✅ No active sessions")
-        
+
         # Show file locks
         locked_files = data.get('locked_files', [])
         if locked_files:
@@ -554,7 +554,7 @@ class OpencodeSlackClient:
                     print(f"     📝 Task: {file_info['task_description'][:60]}{'...' if len(file_info['task_description']) > 60 else ''}")
         else:
             print("\n🔓 No files currently locked")
-        
+
         # Show employees
         employees = data.get('employees', [])
         if employees:
@@ -563,7 +563,7 @@ class OpencodeSlackClient:
                 print(f"  👤 {emp['name']} ({emp['role']})")
         else:
             print("\n👥 No employees hired")
-        
+
         # Show chat status
         if data.get('chat_enabled'):
             stats = data.get('chat_statistics', {})
@@ -573,24 +573,24 @@ class OpencodeSlackClient:
             print(f"   😴 Idle: {stats.get('idle_agents', 0)}")
         else:
             print("\n💬 CHAT SYSTEM: ❌ Inactive")
-        
+
         print("\n" + "=" * 50)
-    
+
     def handle_sessions(self, args):
         """Handle sessions command"""
         response = self._make_request('GET', '/sessions')
-        
+
         if not response or response.status_code != 200:
             print("❌ Failed to get sessions")
             return
-        
+
         data = response.json()
         sessions = data.get('sessions', {})
-        
+
         if not sessions:
             print("No active sessions")
             return
-        
+
         print("🔥 Active sessions:")
         for employee_name, session_info in sessions.items():
             status = "🔥 RUNNING" if session_info['is_running'] else "⏸️  PAUSED"
@@ -599,52 +599,52 @@ class OpencodeSlackClient:
             print(f"     📋 Session: {session_info['session_id']}")
             if session_info.get('files_locked'):
                 print(f"     🔒 Files: {', '.join(session_info['files_locked'])}")
-    
+
     def handle_lock(self, args):
         """Handle lock command"""
         if len(args) < 3:
             print("Usage: lock <name> <file1,file2,...> <description>")
             return
-        
+
         name = args[0]
         files_str = args[1]
         description = " ".join(args[2:])
-        
+
         files = [f.strip() for f in files_str.split(",")]
-        
+
         response = self._make_request('POST', '/files/lock', {
             'name': name,
             'files': files,
             'description': description
         })
-        
+
         if response and response.status_code == 200:
             data = response.json()
             result = data.get('result', {})
-            
+
             print(f"Files locked for {name}:")
             for file_path, status in result.items():
                 print(f"  - {file_path}: {status}")
-            
+
             if any("locked" in status for status in result.values()):
                 print("✅ Files locked successfully!")
         else:
             print("❌ Failed to lock files")
-    
+
     def handle_release(self, args):
         """Handle release command"""
         if len(args) < 1:
             print("Usage: release <name> [files]")
             return
-        
+
         name = args[0]
         files = args[1:] if len(args) > 1 else None
-        
+
         response = self._make_request('POST', '/files/release', {
             'name': name,
             'files': files
         })
-        
+
         if response and response.status_code == 200:
             data = response.json()
             released = data.get('released', [])
@@ -654,21 +654,21 @@ class OpencodeSlackClient:
                 print(f"❌ No files to release for {name}")
         else:
             print("❌ Failed to release files")
-    
+
     def handle_progress(self, args):
         """Handle progress command"""
         name = args[0] if args else None
         params = {'name': name} if name else None
-        
+
         response = self._make_request('GET', '/progress', params=params)
-        
+
         if not response or response.status_code != 200:
             print("❌ Failed to get progress")
             return
-        
+
         data = response.json()
         progress_data = data.get('progress', {})
-        
+
         if name:
             # Single employee progress
             if progress_data:
@@ -690,18 +690,18 @@ class OpencodeSlackClient:
                         print(f"  {emp_name}: No progress data")
             else:
                 print("❌ No progress data available")
-    
+
     def handle_files(self, args):
         """Handle files command"""
         response = self._make_request('GET', '/files')
-        
+
         if not response or response.status_code != 200:
             print("❌ Failed to get files")
             return
-        
+
         data = response.json()
         files = data.get('files', [])
-        
+
         if files:
             print("📁 LOCKED FILES:")
             for file_info in files:
@@ -710,38 +710,38 @@ class OpencodeSlackClient:
                     print(f"     📝 Task: {file_info['task_description']}")
         else:
             print("🔓 No files currently locked")
-    
+
     def handle_employees(self, args):
         """Handle employees command"""
         response = self._make_request('GET', '/employees')
-        
+
         if not response or response.status_code != 200:
             print("❌ Failed to get employees")
             return
-        
+
         data = response.json()
         employees = data.get('employees', [])
-        
+
         if employees:
             print("👥 EMPLOYEES:")
             for employee in employees:
                 print(f"  👤 {employee['name']} ({employee['role']})")
         else:
             print("❌ No employees found")
-    
+
     def handle_chat(self, args):
         """Handle chat command"""
         if not args:
             print("Usage: chat <message>")
             return
-        
+
         message = " ".join(args)
-        
+
         response = self._make_request('POST', '/chat/send', {
             'message': message,
             'sender': 'cli-user'
         })
-        
+
         if response and response.status_code == 200:
             data = response.json()
             print(f"✅ {data['message']}")
@@ -750,11 +750,11 @@ class OpencodeSlackClient:
             print(f"❌ {data.get('error', 'Unknown error')}")
         else:
             print("❌ Failed to send message")
-    
+
     def handle_chat_start(self, args):
         """Handle chat-start command"""
         response = self._make_request('POST', '/chat/start')
-        
+
         if response and response.status_code == 200:
             data = response.json()
             print(f"🚀 {data['message']}")
@@ -763,11 +763,11 @@ class OpencodeSlackClient:
             print(f"❌ {data.get('error', 'Unknown error')}")
         else:
             print("❌ Failed to start chat")
-    
+
     def handle_chat_stop(self, args):
         """Handle chat-stop command"""
         response = self._make_request('POST', '/chat/stop')
-        
+
         if response and response.status_code == 200:
             data = response.json()
             print(f"🛑 {data['message']}")
@@ -776,48 +776,48 @@ class OpencodeSlackClient:
             print(f"❌ {data.get('error', 'Unknown error')}")
         else:
             print("❌ Failed to stop chat")
-    
+
     def handle_chat_status(self, args):
         """Handle chat-status command"""
         response = self._make_request('GET', '/chat/status')
-        
+
         if not response or response.status_code != 200:
             print("❌ Failed to get chat status")
             return
-        
+
         data = response.json()
-        
+
         print("📊 CHAT SYSTEM STATUS")
         print("=" * 50)
         print(f"🔧 Configuration: {'✅ Ready' if data.get('configured') else '❌ Not configured'}")
         print(f"🌐 Connection: {'✅ Connected' if data.get('connected') else '❌ Disconnected'}")
         print(f"🔄 Polling: {'✅ Active' if data.get('polling') else '❌ Stopped'}")
-        
+
         stats = data.get('statistics', {})
         if stats:
             print(f"👥 Total Agents: {stats.get('total_agents', 0)}")
             print(f"🔥 Working: {stats.get('working_agents', 0)}")
             print(f"😴 Idle: {stats.get('idle_agents', 0)}")
             print(f"🆘 Stuck: {stats.get('stuck_agents', 0)}")
-    
+
     def handle_agents(self, args):
         """Handle agents command"""
         response = self._make_request('GET', '/agents')
-        
+
         if not response or response.status_code != 200:
             print("❌ Failed to get agents")
             return
-        
+
         data = response.json()
         agents = data.get('agents', {})
-        
+
         if not agents:
             print("❌ No communication agents found")
             return
-        
+
         print("👥 COMMUNICATION AGENTS STATUS")
         print("=" * 50)
-        
+
         for name, status in agents.items():
             print(f"👤 {name} ({status.get('role', 'unknown')})")
             print(f"   Status: {status.get('worker_status', 'unknown')}")
@@ -829,23 +829,23 @@ class OpencodeSlackClient:
             if status.get('last_response'):
                 print(f"   Last Response: {status['last_response']}")
             print()
-    
+
     def handle_bridge(self, args):
         """Handle bridge command"""
         response = self._make_request('GET', '/bridge')
-        
+
         if not response or response.status_code != 200:
             print("❌ Failed to get bridge status")
             return
-        
+
         data = response.json()
         bridge = data.get('bridge', {})
-        
+
         print("🌉 AGENT BRIDGE STATUS")
         print("=" * 50)
         print(f"🔄 Active Tasks: {bridge.get('active_tasks', 0)}")
         print(f"⏰ Stuck Timers: {bridge.get('stuck_timers', 0)}")
-        
+
         tasks = bridge.get('tasks', {})
         if tasks:
             print("\n📋 CURRENT TASKS:")
@@ -857,24 +857,24 @@ class OpencodeSlackClient:
                 print()
         else:
             print("\n✅ No active tasks")
-    
+
     def handle_health(self, args):
         """Handle health command"""
         response = self._make_request('GET', '/health')
-        
+
         if not response or response.status_code != 200:
             print("❌ Server is not healthy")
             return
-        
+
         data = response.json()
-        
+
         print("🏥 SERVER HEALTH")
         print("=" * 30)
         print(f"Status: ✅ {data.get('status', 'unknown')}")
         print(f"Chat Enabled: {'✅ Yes' if data.get('chat_enabled') else '❌ No'}")
         print(f"Active Sessions: {data.get('active_sessions', 0)}")
         print(f"Total Agents: {data.get('total_agents', 0)}")
-    
+
     def handle_clear(self, args):
         """Handle clear command"""
         os.system("clear" if os.name == "posix" else "cls")
@@ -883,25 +883,25 @@ class OpencodeSlackClient:
         print("Type 'help' for available commands")
         print("Use TAB for command completion")
         print()
-    
+
     def handle_chat_debug(self, args):
         """Handle chat-debug command"""
         response = self._make_request('GET', '/chat/debug')
-        
+
         if not response or response.status_code != 200:
             print("❌ Failed to get chat debug info")
             return
-        
+
         data = response.json()
-        
+
         print("🔍 TELEGRAM DEBUG INFORMATION")
         print("=" * 50)
-        
+
         # Basic connection info
         print(f"🔧 Bot Configured: {'✅ Yes' if data.get('configured') else '❌ No'}")
         print(f"🌐 Bot Connected: {'✅ Yes' if data.get('connected') else '❌ No'}")
         print(f"🔄 Polling Active: {'✅ Yes' if data.get('polling') else '❌ No'}")
-        
+
         # Webhook information
         webhook_info = data.get('webhook_info', {})
         if webhook_info:
@@ -911,7 +911,7 @@ class OpencodeSlackClient:
             print(f"   Pending Updates: {webhook_info.get('pending_update_count', 0)}")
             if webhook_info.get('last_error_date'):
                 print(f"   Last Error: {webhook_info.get('last_error_message', 'Unknown')}")
-        
+
         # Bot information
         bot_info = data.get('bot_info', {})
         if bot_info:
@@ -920,20 +920,20 @@ class OpencodeSlackClient:
             print(f"   First Name: {bot_info.get('first_name', 'unknown')}")
             print(f"   Can Join Groups: {bot_info.get('can_join_groups', False)}")
             print(f"   Can Read All Group Messages: {bot_info.get('can_read_all_group_messages', False)}")
-        
+
         # Troubleshooting tips
         if not data.get('polling') and webhook_info.get('url'):
             print(f"\n⚠️  ISSUE DETECTED:")
             print(f"   Webhook is set but polling is not active.")
             print(f"   This can cause 409 Conflict errors.")
             print(f"   Try: chat-stop then chat-start to clear webhook.")
-    
+
     def handle_history(self, args):
         """Handle history command"""
         if not readline_available:
             print("History not available (readline not installed)")
             return
-            
+
         try:
             history_len = readline.get_current_history_length()
             start_index = max(1, history_len - 10)  # Show last 10 commands
@@ -944,13 +944,13 @@ class OpencodeSlackClient:
                     print(f"  {i:2d}. {cmd}")
         except:
             print("History not available")
-    
+
     def handle_project_root(self, args):
         """Handle project-root command"""
         if not args:
             # Get current project root
             response = self._make_request('GET', '/project-root')
-            
+
             if response and response.status_code == 200:
                 data = response.json()
                 project_root = data.get('project_root', 'Unknown')
@@ -963,7 +963,7 @@ class OpencodeSlackClient:
             response = self._make_request('POST', '/project-root', {
                 'project_root': project_root
             })
-            
+
             if response and response.status_code == 200:
                 data = response.json()
                 print(f"✅ {data['message']}")
@@ -978,7 +978,7 @@ def handle_hire_specialist(self, args):
         """Handle hire-specialist command"""
         # Since this is a client-side command that doesn't require server interaction,
         # we'll just display information about available employee types
-        
+
         # Define available categories and their employee types
         employee_types = {
             'engineering': [
@@ -1002,7 +1002,7 @@ def handle_hire_specialist(self, args):
                 'Studio Producer', 'Project Shipper', 'Experiment Tracker'
             ]
         }
-        
+
         if len(args) < 1:
             # List all categories
             print("Available Employee Categories:")
@@ -1012,23 +1012,23 @@ def handle_hire_specialist(self, args):
             print("\nUsage: hire-specialist <category>")
             print("Example: hire-specialist engineering")
             return
-        
+
         category = args[0].lower().replace(" ", "-")
-        
+
         if category not in employee_types:
             print(f"❌ Category '{category}' not found!")
             print("\nAvailable categories:")
             for cat in employee_types.keys():
                 print(f"  - {cat.replace('-', ' ').title()}")
             return
-        
+
         # List employee types in this category
         types = employee_types[category]
         print(f"Available {category.replace('-', ' ').title()} Specialists:")
         print("=" * 50)
         for i, emp_type in enumerate(types, 1):
             print(f"  {i}. {emp_type}")
-        
+
         print("\nTo hire one of these specialists, use the hire command:")
         print("Example: hire john 'frontend developer'")
 
@@ -1037,9 +1037,9 @@ def main():
     parser = argparse.ArgumentParser(description='OpenCode-Slack CLI Client')
     parser.add_argument('--server', '-s', default='http://localhost:8080',
                        help='Server URL (default: http://localhost:8080)')
-    
+
     args = parser.parse_args()
-    
+
     client = OpencodeSlackClient(args.server)
     client.run()
 

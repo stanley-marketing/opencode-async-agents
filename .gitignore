@@ -69,12 +69,38 @@ web_modules/
 .env
 .env.*
 !.env.example
+!config/environments/.env.template
 *.key
 *.pem
 *.crt
 *.p12
 secrets/
 config/secrets/
+
+# Configuration files with secrets (allow templates)
+config/environments/.env.development
+config/environments/.env.production
+config/environments/.env.staging
+config/environments/.env.test
+
+# Reports and test results
+reports/
+*_report*.json
+*_test_results*.json
+*_validation*.json
+*_analysis*.json
+stress_test_report*.json
+performance_report*.json
+security_report*.json
+compliance_report*.json
+
+# Temporary and backup files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+config_backup_*/
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

@@ -1,0 +1,182 @@
+# Security Configuration for OpenCode-Slack
+# This file contains security-related settings and policies
+
+# Authentication Configuration
+authentication:
+  # Session configuration
+  session:
+    timeout: 3600  # 1 hour
+    secure_cookies: true
+    httponly_cookies: true
+    samesite: "Strict"
+  
+  # Password policies
+  password:
+    min_length: 12
+    require_uppercase: true
+    require_lowercase: true
+    require_numbers: true
+    require_special_chars: true
+    max_attempts: 5
+    lockout_duration: 900  # 15 minutes
+
+# API Security
+api:
+  # Rate limiting
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 100
+    burst_limit: 20
+    
+  # Request validation
+  validation:
+    max_request_size: "16MB"
+    timeout: 60
+    
+  # CORS settings
+  cors:
+    enabled: true
+    allowed_origins: []  # Set in environment-specific config
+    allowed_methods: ["GET", "POST", "PUT", "DELETE"]
+    allowed_headers: ["Content-Type", "Authorization"]
+    max_age: 3600
+
+# Encryption Settings
+encryption:
+  # Algorithm settings
+  algorithm: "AES-256-GCM"
+  key_derivation: "PBKDF2"
+  iterations: 100000
+  
+  # Data encryption
+  encrypt_database: true
+  encrypt_sessions: true
+  encrypt_logs: false
+
+# Network Security
+network:
+  # TLS/SSL settings
+  tls:
+    min_version: "1.2"
+    preferred_ciphers:
+      - "ECDHE-RSA-AES256-GCM-SHA512"
+      - "DHE-RSA-AES256-GCM-SHA512"
+      - "ECDHE-RSA-AES256-GCM-SHA384"
+      - "DHE-RSA-AES256-GCM-SHA384"
+  
+  # Security headers
+  headers:
+    x_frame_options: "DENY"
+    x_content_type_options: "nosniff"
+    x_xss_protection: "1; mode=block"
+    strict_transport_security: "max-age=31536000; includeSubDomains"
+    content_security_policy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+
+# File Security
+files:
+  # Upload restrictions
+  uploads:
+    max_size: "10MB"
+    allowed_types: [".txt", ".md", ".json", ".yaml", ".yml"]
+    scan_uploads: true
+  
+  # File permissions
+  permissions:
+    config_files: "600"
+    log_files: "640"
+    data_files: "600"
+    executable_files: "750"
+
+# Logging and Monitoring
+security_logging:
+  # Security events to log
+  log_events:
+    - "authentication_failure"
+    - "authorization_failure"
+    - "rate_limit_exceeded"
+    - "suspicious_activity"
+    - "configuration_changes"
+    - "privilege_escalation"
+  
+  # Log retention
+  retention:
+    security_logs: 90  # days
+    audit_logs: 365   # days
+  
+  # Alert thresholds
+  alerts:
+    failed_logins_threshold: 5
+    rate_limit_threshold: 10
+    suspicious_activity_threshold: 3
+
+# Input Validation
+input_validation:
+  # SQL injection prevention
+  sql_injection:
+    enabled: true
+    use_parameterized_queries: true
+    escape_special_chars: true
+  
+  # XSS prevention
+  xss_protection:
+    enabled: true
+    sanitize_input: true
+    escape_output: true
+  
+  # Command injection prevention
+  command_injection:
+    enabled: true
+    whitelist_commands: []
+    block_shell_metacharacters: true
+
+# Secrets Management
+secrets:
+  # Secret rotation
+  rotation:
+    enabled: true
+    interval_days: 90
+    notify_before_expiry: 7
+  
+  # Secret storage
+  storage:
+    use_environment_variables: true
+    use_secret_manager: false  # Set to true for production
+    encrypt_at_rest: true
+  
+  # Secret validation
+  validation:
+    check_entropy: true
+    min_entropy_bits: 128
+    check_common_passwords: true
+
+# Compliance Settings
+compliance:
+  # Data protection
+  data_protection:
+    anonymize_logs: true
+    encrypt_pii: true
+    data_retention_days: 365
+  
+  # Audit requirements
+  audit:
+    enabled: true
+    log_all_access: true
+    log_data_changes: true
+    log_admin_actions: true
+
+# Development Security (only for development environment)
+development:
+  # Relaxed settings for development
+  allow_http: true
+  disable_csrf: false  # Keep CSRF protection even in dev
+  verbose_errors: true
+  debug_mode: true
+
+# Production Security (only for production environment)
+production:
+  # Strict settings for production
+  force_https: true
+  enable_hsts: true
+  hide_server_info: true
+  disable_debug: true
+  enable_security_scanning: true

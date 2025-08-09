@@ -4,18 +4,18 @@ Enhanced Database Manager with comprehensive error handling and resilience featu
 Provides database initialization, migration, backup, recovery, and connection pooling.
 """
 
-import sqlite3
+from contextlib import contextmanager
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Optional, Dict, List, Any, Callable
+import hashlib
+import json
+import logging
 import os
 import shutil
-import time
+import sqlite3
 import threading
-import logging
-from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Optional, Dict, List, Any, Callable
-from contextlib import contextmanager
-import json
-import hashlib
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class DatabaseMigrationError(DatabaseError):
 
 class ConnectionPool:
     """Thread-safe connection pool for SQLite database"""
-    
+
     def __init__(self, db_path: str, max_connections: int = 10, timeout: float = 30.0):
         self.db_path = db_path
         self.max_connections = max_connections
@@ -50,7 +50,7 @@ class ConnectionPool:
         self._pool = []
         self._pool_lock = threading.Lock()
         self._active_connections = 0
-        
+
     @contextmanager
     def get_connection(self):
         """Get a database connection from the pool"""
@@ -61,11 +61,11 @@ class ConnectionPool:
         finally:
             if conn:
                 self._release_connection(conn)
-    
+
     def _acquire_connection(self) -> sqlite3.Connection:
         """Acquire a connection from the pool"""
         start_time = time.time()
-        
+
         while time.time() - start_time < self.timeout:
             with self._pool_lock:
                 if self._pool:
@@ -79,7 +79,7 @@ class ConnectionPool:
                         )
                         # Test the connection with a simple query first
                         conn.execute("SELECT 1")
-                        
+
                         # Configure connection if it's working
                         conn.execute("PRAGMA journal_mode=WAL")
                         conn.execute("PRAGMA synchronous=NORMAL")
@@ -93,17 +93,17 @@ class ConnectionPool:
                     except sqlite3.Error as e:
                         logger.error(f"Failed to create database connection: {e}")
                         raise DatabaseConnectionError(f"Failed to create connection: {e}")
-            
+
             time.sleep(0.1)  # Wait before retrying
-        
+
         raise DatabaseConnectionError("Connection pool timeout")
-    
+
     def _release_connection(self, conn: sqlite3.Connection):
         """Release a connection back to the pool"""
         try:
             # Rollback any uncommitted transactions
             conn.rollback()
-            
+
             with self._pool_lock:
                 if len(self._pool) < self.max_connections:
                     self._pool.append(conn)
@@ -114,7 +114,7 @@ class ConnectionPool:
             logger.warning(f"Error releasing connection: {e}")
             with self._pool_lock:
                 self._active_connections -= 1
-    
+
     def close_all(self):
         """Close all connections in the pool"""
         with self._pool_lock:
@@ -129,10 +129,10 @@ class ConnectionPool:
 
 class DatabaseManager:
     """Enhanced database manager with comprehensive error handling and resilience"""
-    
+
     # Database schema version
     SCHEMA_VERSION = 1
-    
+
     # Schema definitions
     SCHEMA_DEFINITIONS = {
         1: {
@@ -197,7 +197,7 @@ class DatabaseManager:
             '''
         }
     }
-    
+
     # Index definitions
     INDEX_DEFINITIONS = {
         1: [
@@ -216,25 +216,25 @@ class DatabaseManager:
             'CREATE INDEX IF NOT EXISTS idx_system_health_recorded_at ON system_health(recorded_at)'
         ]
     }
-    
-    def __init__(self, db_path: str, backup_dir: Optional[str] = None, 
+
+    def __init__(self, db_path: str, backup_dir: Optional[str] = None,
                  max_connections: int = 10, auto_backup: bool = True):
         self.db_path = Path(db_path).resolve()
         self.backup_dir = Path(backup_dir or self.db_path.parent / "backups")
         self.auto_backup = auto_backup
-        
+
         # Ensure directories exist
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.backup_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Initialize connection pool
         self.connection_pool = ConnectionPool(str(self.db_path), max_connections)
-        
+
         # Initialize database
         self._initialize_database()
-        
+
         logger.info(f"DatabaseManager initialized: {self.db_path}")
-    
+
     def _initialize_database(self):
         """Initialize database with proper error handling and recovery"""
         try:
@@ -250,19 +250,19 @@ class DatabaseManager:
             else:
                 logger.info("Database file not found, creating new database")
                 self._create_new_database()
-            
+
             # Run migrations
             self._run_migrations()
-            
+
             # Create indexes
             self._create_indexes()
-            
+
             # Record successful initialization
             try:
                 self._record_health_status("database", "healthy", "Database initialized successfully")
             except Exception as e:
                 logger.warning(f"Failed to record health status: {e}")
-            
+
         except DatabaseCorruptionError as e:
             logger.error(f"Database corruption detected: {e}")
             try:
@@ -280,7 +280,7 @@ class DatabaseManager:
             except Exception:
                 pass  # Don't fail if we can't record health status
             raise DatabaseError(f"Failed to initialize database: {e}")
-    
+
     def _validate_database(self) -> bool:
         """Validate database integrity"""
         try:
@@ -288,16 +288,16 @@ class DatabaseManager:
             if not self.db_path.exists():
                 logger.error("Database file does not exist")
                 return False
-            
+
             if self.db_path.stat().st_size == 0:
                 logger.error("Database file is empty")
                 return False
-            
+
             # Try to open with basic sqlite3 connection first
             try:
                 test_conn = sqlite3.connect(str(self.db_path), timeout=5)
                 test_cursor = test_conn.cursor()
-                
+
                 # Check database integrity
                 test_cursor.execute("PRAGMA integrity_check")
                 result = test_cursor.fetchone()
@@ -305,36 +305,36 @@ class DatabaseManager:
                     logger.error(f"Database integrity check failed: {result[0]}")
                     test_conn.close()
                     return False
-                
+
                 # Check if required tables exist
                 test_cursor.execute("""
-                    SELECT name FROM sqlite_master 
+                    SELECT name FROM sqlite_master
                     WHERE type='table' AND name IN ('employees', 'file_locks', 'file_requests')
                 """)
                 tables = [row[0] for row in test_cursor.fetchall()]
                 required_tables = ['employees', 'file_locks', 'file_requests']
-                
+
                 test_conn.close()
-                
+
                 if not all(table in tables for table in required_tables):
                     logger.error(f"Missing required tables. Found: {tables}, Required: {required_tables}")
                     return False
-                
+
                 return True
-                
+
             except sqlite3.DatabaseError as e:
                 logger.error(f"Database file is corrupted: {e}")
                 return False
-                
+
         except Exception as e:
             logger.error(f"Database validation error: {e}")
             return False
-    
+
     def _recover_database(self) -> bool:
         """Attempt to recover corrupted database"""
         try:
             logger.info("Attempting database recovery")
-            
+
             # Create backup of corrupted database
             corrupted_backup = self.backup_dir / f"corrupted_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
             try:
@@ -342,27 +342,27 @@ class DatabaseManager:
                 logger.info(f"Corrupted database backed up to: {corrupted_backup}")
             except Exception as e:
                 logger.warning(f"Failed to backup corrupted database: {e}")
-            
+
             # For severely corrupted databases, just recreate
             try:
                 # Remove corrupted database
                 if self.db_path.exists():
                     self.db_path.unlink()
-                
+
                 # Create new database
                 self._create_new_database()
-                
+
                 logger.info("Database recovery successful - created new database")
                 return True
-                
+
             except Exception as e:
                 logger.error(f"Database recovery process failed: {e}")
                 return False
-                
+
         except Exception as e:
             logger.error(f"Database recovery failed: {e}")
             return False
-    
+
     def _create_new_database(self):
         """Create a new database with proper schema"""
         try:
@@ -371,28 +371,28 @@ class DatabaseManager:
                 backup_path = self.backup_dir / f"replaced_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
                 shutil.move(self.db_path, backup_path)
                 logger.info(f"Existing database moved to: {backup_path}")
-            
+
             # Create new database
             with self.connection_pool.get_connection() as conn:
                 cursor = conn.cursor()
-                
+
                 # Create all tables for current schema version
                 for table_name, table_sql in self.SCHEMA_DEFINITIONS[self.SCHEMA_VERSION].items():
                     cursor.execute(table_sql)
-                
+
                 conn.commit()
                 logger.info("New database created successfully")
-                
+
         except Exception as e:
             logger.error(f"Failed to create new database: {e}")
             raise DatabaseError(f"Failed to create new database: {e}")
-    
+
     def _run_migrations(self):
         """Run database migrations"""
         try:
             with self.connection_pool.get_connection() as conn:
                 cursor = conn.cursor()
-                
+
                 # Get current schema version
                 try:
                     cursor.execute("SELECT MAX(version) FROM schema_migrations")
@@ -401,57 +401,57 @@ class DatabaseManager:
                 except sqlite3.OperationalError:
                     # schema_migrations table doesn't exist
                     current_version = 0
-                
+
                 # Run migrations for versions higher than current
                 for version in range(current_version + 1, self.SCHEMA_VERSION + 1):
                     logger.info(f"Running migration to version {version}")
-                    
+
                     # Create tables for this version
                     if version in self.SCHEMA_DEFINITIONS:
                         for table_name, table_sql in self.SCHEMA_DEFINITIONS[version].items():
                             cursor.execute(table_sql)
-                    
+
                     # Record migration
                     migration_checksum = self._calculate_schema_checksum(version)
                     cursor.execute("""
                         INSERT INTO schema_migrations (version, description, checksum)
                         VALUES (?, ?, ?)
                     """, (version, f"Migration to version {version}", migration_checksum))
-                
+
                 conn.commit()
                 logger.info(f"Migrations completed. Current version: {self.SCHEMA_VERSION}")
-                
+
         except Exception as e:
             logger.error(f"Migration failed: {e}")
             raise DatabaseMigrationError(f"Migration failed: {e}")
-    
+
     def _create_indexes(self):
         """Create database indexes for performance"""
         try:
             with self.connection_pool.get_connection() as conn:
                 cursor = conn.cursor()
-                
+
                 # Create indexes for current schema version
                 if self.SCHEMA_VERSION in self.INDEX_DEFINITIONS:
                     for index_sql in self.INDEX_DEFINITIONS[self.SCHEMA_VERSION]:
                         cursor.execute(index_sql)
-                
+
                 conn.commit()
                 logger.info("Database indexes created successfully")
-                
+
         except Exception as e:
             logger.error(f"Failed to create indexes: {e}")
             # Don't raise exception for index creation failures
-    
+
     def _calculate_schema_checksum(self, version: int) -> str:
         """Calculate checksum for schema version"""
         schema_content = ""
         if version in self.SCHEMA_DEFINITIONS:
             for table_sql in self.SCHEMA_DEFINITIONS[version].values():
                 schema_content += table_sql
-        
+
         return hashlib.md5(schema_content.encode()).hexdigest()
-    
+
     def _record_health_status(self, component: str, status: str, message: str, details: Dict = None):
         """Record system health status"""
         try:
@@ -464,7 +464,7 @@ class DatabaseManager:
                 conn.commit()
         except Exception as e:
             logger.error(f"Failed to record health status: {e}")
-    
+
     @contextmanager
     def get_connection(self):
         """Get a database connection with automatic transaction handling"""
@@ -475,23 +475,23 @@ class DatabaseManager:
                 conn.rollback()
                 logger.error(f"Database transaction failed: {e}")
                 raise
-    
+
     def execute_with_retry(self, query: str, params: tuple = (), max_retries: int = 3) -> Any:
         """Execute query with retry logic for transient failures"""
         last_exception = None
-        
+
         for attempt in range(max_retries):
             try:
                 with self.get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(query, params)
-                    
+
                     if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE')):
                         conn.commit()
                         return cursor.rowcount
                     else:
                         return cursor.fetchall()
-                        
+
             except sqlite3.OperationalError as e:
                 last_exception = e
                 if "database is locked" in str(e).lower():
@@ -506,61 +506,61 @@ class DatabaseManager:
                 if attempt == max_retries - 1:
                     raise
                 time.sleep(0.1 * (attempt + 1))
-        
+
         raise last_exception
-    
+
     def create_backup(self, backup_name: Optional[str] = None) -> Path:
         """Create database backup"""
         try:
             if backup_name is None:
                 backup_name = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
-            
+
             backup_path = self.backup_dir / backup_name
-            
+
             # Use SQLite backup API for consistent backup
             with sqlite3.connect(str(self.db_path)) as source:
                 with sqlite3.connect(str(backup_path)) as backup:
                     source.backup(backup)
-            
+
             logger.info(f"Database backup created: {backup_path}")
-            
+
             # Clean up old backups (keep last 10)
             self._cleanup_old_backups()
-            
+
             return backup_path
-            
+
         except Exception as e:
             logger.error(f"Backup creation failed: {e}")
             raise DatabaseError(f"Backup creation failed: {e}")
-    
+
     def restore_backup(self, backup_path: Path) -> bool:
         """Restore database from backup"""
         try:
             if not backup_path.exists():
                 raise DatabaseError(f"Backup file not found: {backup_path}")
-            
+
             # Validate backup before restoring
             temp_conn = sqlite3.connect(str(backup_path))
             cursor = temp_conn.cursor()
             cursor.execute("PRAGMA integrity_check")
             result = cursor.fetchone()
             temp_conn.close()
-            
+
             if result[0] != "ok":
                 raise DatabaseError(f"Backup file is corrupted: {result[0]}")
-            
+
             # Create backup of current database
             current_backup = self.create_backup(f"pre_restore_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
-            
+
             # Close all connections
             self.connection_pool.close_all()
-            
+
             # Replace current database with backup
             shutil.copy2(backup_path, self.db_path)
-            
+
             # Reinitialize connection pool
             self.connection_pool = ConnectionPool(str(self.db_path))
-            
+
             # Validate restored database
             if self._validate_database():
                 logger.info(f"Database restored from backup: {backup_path}")
@@ -571,40 +571,40 @@ class DatabaseManager:
                 shutil.copy2(current_backup, self.db_path)
                 self.connection_pool = ConnectionPool(str(self.db_path))
                 raise DatabaseError("Restored database validation failed")
-                
+
         except Exception as e:
             logger.error(f"Database restore failed: {e}")
             self._record_health_status("database", "failed", f"Restore failed: {e}")
             return False
-    
+
     def _cleanup_old_backups(self, keep_count: int = 10):
         """Clean up old backup files"""
         try:
             backup_files = list(self.backup_dir.glob("backup_*.db"))
             backup_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-            
+
             for backup_file in backup_files[keep_count:]:
                 backup_file.unlink()
                 logger.debug(f"Removed old backup: {backup_file}")
-                
+
         except Exception as e:
             logger.warning(f"Backup cleanup failed: {e}")
-    
+
     def get_health_status(self) -> Dict[str, Any]:
         """Get comprehensive database health status"""
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                
+
                 # Get database size
                 db_size = self.db_path.stat().st_size if self.db_path.exists() else 0
-                
+
                 # Get table counts
                 table_counts = {}
                 for table in ['employees', 'file_locks', 'file_requests']:
                     cursor.execute(f"SELECT COUNT(*) FROM {table}")
                     table_counts[table] = cursor.fetchone()[0]
-                
+
                 # Get recent health records
                 cursor.execute("""
                     SELECT component, status, message, recorded_at
@@ -621,11 +621,11 @@ class DatabaseManager:
                     }
                     for row in cursor.fetchall()
                 ]
-                
+
                 # Get schema version
                 cursor.execute("SELECT MAX(version) FROM schema_migrations")
                 schema_version = cursor.fetchone()[0] or 0
-                
+
                 return {
                     'status': 'healthy',
                     'db_path': str(self.db_path),
@@ -637,7 +637,7 @@ class DatabaseManager:
                     'backup_dir': str(self.backup_dir),
                     'last_checked': datetime.now().isoformat()
                 }
-                
+
         except Exception as e:
             logger.error(f"Health status check failed: {e}")
             return {
@@ -645,37 +645,37 @@ class DatabaseManager:
                 'error': str(e),
                 'last_checked': datetime.now().isoformat()
             }
-    
+
     def vacuum_database(self):
         """Vacuum database to reclaim space and optimize performance"""
         try:
             logger.info("Starting database vacuum operation")
-            
+
             with self.get_connection() as conn:
                 # Get database size before vacuum
                 cursor = conn.cursor()
                 cursor.execute("PRAGMA page_count")
                 pages_before = cursor.fetchone()[0]
-                
+
                 # Perform vacuum
                 conn.execute("VACUUM")
-                
+
                 # Get database size after vacuum
                 cursor.execute("PRAGMA page_count")
                 pages_after = cursor.fetchone()[0]
-                
+
                 pages_freed = pages_before - pages_after
                 logger.info(f"Database vacuum completed. Pages freed: {pages_freed}")
-                
+
                 self._record_health_status(
-                    "database", "healthy", 
+                    "database", "healthy",
                     f"Vacuum completed, freed {pages_freed} pages"
                 )
-                
+
         except Exception as e:
             logger.error(f"Database vacuum failed: {e}")
             self._record_health_status("database", "degraded", f"Vacuum failed: {e}")
-    
+
     def close(self):
         """Close database manager and all connections"""
         try:
