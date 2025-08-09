@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Enhanced OpenCode-Slack Server with comprehensive error handling and resilience.
-Provides robust database initialization, graceful degradation, and recovery mechanisms.
+WebSocket-enabled OpenCode-Slack Server with real-time communication.
+Enhanced version of the server with WebSocket support for modern UI.
 """
 
 from flask import Flask, request, jsonify
@@ -26,7 +26,6 @@ from src.utils.opencode_wrapper import OpencodeSessionManager
 from src.chat.communication_manager import CommunicationManager
 from src.agents.agent_manager import AgentManager
 from src.bridge.agent_bridge import AgentBridge
-from src.integrations.websocket_server_integration import create_websocket_integration
 
 # Optional imports for monitoring system
 try:
@@ -41,11 +40,12 @@ except ImportError:
     MonitoringDashboard = None
 
 
-class EnhancedOpencodeSlackServer:
-    """Enhanced server with comprehensive error handling and resilience"""
+class WebSocketOpencodeSlackServer:
+    """WebSocket-enabled server with real-time communication capabilities"""
 
-    def __init__(self, host="localhost", port=8080, websocket_port=8765, db_path="employees.db",
-                 sessions_dir="sessions", backup_dir=None, transport_type=None):
+    def __init__(self, host="localhost", port=8080, websocket_port=8765, 
+                 db_path="employees.db", sessions_dir="sessions", backup_dir=None,
+                 transport_type=None):
         self.host = host
         self.port = port
         self.websocket_port = websocket_port
@@ -63,23 +63,18 @@ class EnhancedOpencodeSlackServer:
         # Load environment variables
         self._load_environment()
 
-        # Configure logging with enhanced error handling
+        # Configure logging
         self._setup_enhanced_logging()
 
-        # Initialize core components with error handling
+        # Initialize core components
         self._initialize_components()
-        
-        # Initialize WebSocket integration
-        self._initialize_websocket_integration()
 
-        # Initialize Flask app
+        # Initialize Flask app with WebSocket support
         self.app = Flask(__name__)
-        CORS(self.app)
+        CORS(self.app, origins=["http://localhost:3000", "http://127.0.0.1:3000"])  # Allow React dev server
         self._setup_enhanced_routes()
 
-        self.logger.info(f"Enhanced OpenCode-Slack server initialized on {host}:{port}")
-        if hasattr(self, 'websocket_integration'):
-            self.logger.info(f"WebSocket support available on port {websocket_port}")
+        self.logger.info(f"WebSocket OpenCode-Slack server initialized on {host}:{port}")
         if self.degraded_mode:
             self.logger.warning("Server running in degraded mode due to initialization errors")
 
@@ -130,7 +125,6 @@ class EnhancedOpencodeSlackServer:
         self.health_monitor = None
         self.recovery_manager = None
         self.monitoring_dashboard = None
-        self.websocket_integration = None
 
         # Initialize database and file management
         self._initialize_database_components()
@@ -141,8 +135,8 @@ class EnhancedOpencodeSlackServer:
         # Initialize session management
         self._initialize_session_management()
 
-        # Initialize chat system
-        self._initialize_chat_system()
+        # Initialize communication system (WebSocket or Telegram)
+        self._initialize_communication_system()
 
         # Initialize monitoring system
         self._initialize_monitoring_system()
@@ -220,56 +214,30 @@ class EnhancedOpencodeSlackServer:
             self.initialization_errors.append(error_msg)
             self.session_manager = None
 
-    def _initialize_chat_system(self):
-        """Initialize communication system with error handling"""
+    def _initialize_communication_system(self):
+        """Initialize communication system with WebSocket support"""
         try:
-            # This will be replaced by WebSocket integration
-            # Keep basic initialization for fallback
-            if self.file_manager:
-                # Placeholder - will be replaced by WebSocket integration
-                pass
+            # Create communication manager with WebSocket support
+            self.communication_manager = CommunicationManager(
+                transport_type=self.transport_type,
+                host=self.host,
+                port=self.websocket_port
+            )
 
-            self.logger.info("Communication system placeholder initialized")
+            if self.file_manager:
+                self.agent_manager = AgentManager(self.file_manager, self.communication_manager)
+
+                if self.session_manager:
+                    self.agent_bridge = AgentBridge(self.session_manager, self.agent_manager)
+
+            transport_type = self.communication_manager.get_transport_type()
+            self.logger.info(f"Communication system initialized with {transport_type} transport")
 
         except Exception as e:
             error_msg = f"Communication system initialization failed: {e}"
             self.logger.error(error_msg)
             self.initialization_errors.append(error_msg)
             # Communication system is optional, continue without it
-            
-    def _initialize_websocket_integration(self):
-        """Initialize WebSocket integration with error handling"""
-        try:
-            # Create WebSocket integration
-            self.websocket_integration = create_websocket_integration(
-                host=self.host,
-                websocket_port=self.websocket_port,
-                transport_type=self.transport_type
-            )
-            
-            # Get communication manager from integration
-            self.communication_manager = self.websocket_integration.communication_manager
-            
-            # Initialize agent manager with communication manager
-            if self.file_manager:
-                self.agent_manager = AgentManager(self.file_manager, self.communication_manager)
-                
-                if self.session_manager:
-                    self.agent_bridge = AgentBridge(self.session_manager, self.agent_manager)
-                    
-                    # Integrate WebSocket functionality
-                    self.websocket_integration.integrate_with_server(
-                        self, self.agent_manager, self.session_manager
-                    )
-            
-            self.logger.info("WebSocket integration initialized successfully")
-            
-        except Exception as e:
-            error_msg = f"WebSocket integration failed: {e}"
-            self.logger.error(error_msg)
-            self.initialization_errors.append(error_msg)
-            # Try fallback to basic communication
-            self._fallback_communication_system()
 
     def _initialize_monitoring_system(self):
         """Initialize monitoring system with error handling"""
@@ -309,28 +277,9 @@ class EnhancedOpencodeSlackServer:
             self.logger.error(error_msg)
             self.initialization_errors.append(error_msg)
             # Monitoring is optional, continue without it
-            
-    def _fallback_communication_system(self):
-        """Fallback to basic communication system"""
-        try:
-            from src.chat.telegram_manager import TelegramManager
-            
-            self.communication_manager = TelegramManager()
-            
-            if self.file_manager:
-                self.agent_manager = AgentManager(self.file_manager, self.communication_manager)
-                
-                if self.session_manager:
-                    self.agent_bridge = AgentBridge(self.session_manager, self.agent_manager)
-                    
-            self.logger.warning("Using fallback communication system")
-            
-        except Exception as e:
-            self.logger.error(f"Fallback communication system also failed: {e}")
-            self.communication_manager = None
 
     def _setup_enhanced_routes(self):
-        """Set up Flask routes with enhanced error handling"""
+        """Set up Flask routes with enhanced error handling and WebSocket support"""
 
         # Error handler for all routes
         @self.app.errorhandler(Exception)
@@ -346,7 +295,7 @@ class EnhancedOpencodeSlackServer:
 
         @self.app.route('/health', methods=['GET'])
         def health_check():
-            """Enhanced health check endpoint"""
+            """Enhanced health check endpoint with WebSocket info"""
             try:
                 health_status = {
                     'status': 'degraded' if self.degraded_mode else 'healthy',
@@ -356,13 +305,17 @@ class EnhancedOpencodeSlackServer:
                         'file_manager': self.file_manager is not None,
                         'task_tracker': self.task_tracker is not None,
                         'session_manager': self.session_manager is not None,
-                        'chat_system': self.agent_manager is not None,
+                        'communication_system': self.communication_manager is not None,
                         'monitoring_system': self.health_monitor is not None
                     },
                     'chat_enabled': self.chat_enabled,
                     'active_sessions': len(self.session_manager.get_active_sessions()) if self.session_manager else 0,
                     'total_agents': len(self.agent_manager.agents) if self.agent_manager else 0
                 }
+
+                # Add communication transport information
+                if self.communication_manager:
+                    health_status['communication'] = self.communication_manager.get_transport_info()
 
                 # Add detailed health information if available
                 if self.file_manager and hasattr(self.file_manager, 'get_system_health'):
@@ -378,6 +331,93 @@ class EnhancedOpencodeSlackServer:
                     'degraded_mode': True
                 }), 500
 
+        @self.app.route('/communication/info', methods=['GET'])
+        def get_communication_info():
+            """Get information about the communication system"""
+            try:
+                if not self.communication_manager:
+                    return jsonify({
+                        'error': 'Communication system not available'
+                    }), 503
+
+                info = self.communication_manager.get_transport_info()
+                return jsonify(info)
+
+            except Exception as e:
+                self.logger.error(f"Error getting communication info: {e}")
+                return jsonify({
+                    'error': 'Failed to get communication info',
+                    'message': str(e)
+                }), 500
+
+        @self.app.route('/communication/switch', methods=['POST'])
+        def switch_communication_transport():
+            """Switch communication transport (Telegram <-> WebSocket)"""
+            try:
+                if not self.communication_manager:
+                    return jsonify({
+                        'error': 'Communication system not available'
+                    }), 503
+
+                data = request.get_json()
+                if not data:
+                    return jsonify({
+                        'error': 'No JSON data provided'
+                    }), 400
+
+                new_transport = data.get('transport_type')
+                if new_transport not in ['telegram', 'websocket']:
+                    return jsonify({
+                        'error': 'Invalid transport type. Must be "telegram" or "websocket"'
+                    }), 400
+
+                # Extract transport-specific config
+                config = data.get('config', {})
+
+                success = self.communication_manager.switch_transport(new_transport, **config)
+
+                if success:
+                    return jsonify({
+                        'message': f'Successfully switched to {new_transport} transport',
+                        'transport_info': self.communication_manager.get_transport_info()
+                    })
+                else:
+                    return jsonify({
+                        'error': f'Failed to switch to {new_transport} transport'
+                    }), 500
+
+            except Exception as e:
+                self.logger.error(f"Error switching transport: {e}")
+                return jsonify({
+                    'error': 'Failed to switch transport',
+                    'message': str(e)
+                }), 500
+
+        @self.app.route('/communication/stats', methods=['GET'])
+        def get_communication_stats():
+            """Get communication statistics"""
+            try:
+                if not self.communication_manager:
+                    return jsonify({
+                        'error': 'Communication system not available'
+                    }), 503
+
+                stats = self.communication_manager.get_statistics()
+                return jsonify(stats)
+
+            except Exception as e:
+                self.logger.error(f"Error getting communication stats: {e}")
+                return jsonify({
+                    'error': 'Failed to get communication stats',
+                    'message': str(e)
+                }), 500
+
+        # Include all the original routes from enhanced_server.py
+        self._add_original_routes()
+
+    def _add_original_routes(self):
+        """Add all original routes from enhanced_server.py"""
+        
         @self.app.route('/employees', methods=['GET'])
         def list_employees():
             """List all employees with error handling"""
@@ -465,52 +505,6 @@ class EnhancedOpencodeSlackServer:
                     'message': str(e)
                 }), 500
 
-        @self.app.route('/employees/<name>', methods=['DELETE'])
-        def fire_employee(name):
-            """Fire an employee with enhanced error handling"""
-            try:
-                if not self.file_manager:
-                    return jsonify({
-                        'error': 'File manager not available'
-                    }), 503
-
-                if not name or not name.strip():
-                    return jsonify({
-                        'error': 'Employee name cannot be empty'
-                    }), 400
-
-                # Stop any active sessions first
-                if self.session_manager and name in self.session_manager.active_sessions:
-                    try:
-                        self.session_manager.stop_employee_task(name)
-                    except Exception as e:
-                        self.logger.warning(f"Failed to stop session for {name}: {e}")
-
-                # Remove communication agent
-                if self.agent_manager:
-                    try:
-                        self.agent_manager.remove_agent(name)
-                    except Exception as e:
-                        self.logger.warning(f"Failed to remove agent for {name}: {e}")
-
-                success = self.file_manager.fire_employee(name, self.task_tracker)
-
-                if success:
-                    return jsonify({
-                        'message': f'Successfully fired {name}'
-                    })
-                else:
-                    return jsonify({
-                        'error': f'Failed to fire {name}. Employee may not exist.'
-                    }), 400
-
-            except Exception as e:
-                self.logger.error(f"Error firing employee {name}: {e}")
-                return jsonify({
-                    'error': 'Failed to fire employee',
-                    'message': str(e)
-                }), 500
-
         @self.app.route('/tasks', methods=['POST'])
         def assign_task():
             """Assign a task to an employee with enhanced error handling"""
@@ -595,112 +589,6 @@ class EnhancedOpencodeSlackServer:
                     'message': str(e)
                 }), 500
 
-        @self.app.route('/system/backup', methods=['POST'])
-        def create_backup():
-            """Create system backup"""
-            try:
-                if not self.file_manager or not hasattr(self.file_manager, 'create_backup'):
-                    return jsonify({
-                        'error': 'Backup functionality not available'
-                    }), 503
-
-                success = self.file_manager.create_backup()
-
-                if success:
-                    return jsonify({
-                        'message': 'Backup created successfully'
-                    })
-                else:
-                    return jsonify({
-                        'error': 'Backup creation failed'
-                    }), 500
-
-            except Exception as e:
-                self.logger.error(f"Error creating backup: {e}")
-                return jsonify({
-                    'error': 'Backup creation failed',
-                    'message': str(e)
-                }), 500
-
-        @self.app.route('/system/vacuum', methods=['POST'])
-        def vacuum_database():
-            """Vacuum database for optimization"""
-            try:
-                if not self.file_manager or not hasattr(self.file_manager, 'vacuum_database'):
-                    return jsonify({
-                        'error': 'Database vacuum functionality not available'
-                    }), 503
-
-                success = self.file_manager.vacuum_database()
-
-                if success:
-                    return jsonify({
-                        'message': 'Database vacuum completed successfully'
-                    })
-                else:
-                    return jsonify({
-                        'error': 'Database vacuum failed'
-                    }), 500
-
-            except Exception as e:
-                self.logger.error(f"Error vacuuming database: {e}")
-                return jsonify({
-                    'error': 'Database vacuum failed',
-                    'message': str(e)
-                }), 500
-
-        @self.app.route('/system/health/detailed', methods=['GET'])
-        def get_detailed_health():
-            """Get detailed system health information"""
-            try:
-                health_info = {
-                    'server_status': 'degraded' if self.degraded_mode else 'healthy',
-                    'initialization_errors': self.initialization_errors,
-                    'components': {}
-                }
-
-                # Add component health information
-                if self.file_manager and hasattr(self.file_manager, 'get_system_health'):
-                    health_info['components']['file_system'] = self.file_manager.get_system_health()
-
-                if self.health_monitor:
-                    health_info['components']['monitoring'] = self.health_monitor.get_agent_health_summary()
-
-                if self.recovery_manager:
-                    health_info['components']['recovery'] = self.recovery_manager.get_recovery_summary()
-
-                return jsonify(health_info)
-
-            except Exception as e:
-                self.logger.error(f"Error getting detailed health: {e}")
-                return jsonify({
-                    'error': 'Failed to get detailed health information',
-                    'message': str(e)
-                }), 500
-
-        # Add all other routes from the original server with error handling
-        self._add_remaining_routes()
-
-    def _add_remaining_routes(self):
-        """Add remaining routes from original server with error handling"""
-
-        @self.app.route('/tasks/<name>', methods=['DELETE'])
-        def stop_task(name):
-            """Stop an employee's task"""
-            try:
-                if not self.session_manager:
-                    return jsonify({'error': 'Session manager not available'}), 503
-
-                self.session_manager.stop_employee_task(name)
-                return jsonify({'message': f'Stopped task for {name}'})
-
-            except Exception as e:
-                self.logger.error(f"Error stopping task for {name}: {e}")
-                return jsonify({
-                    'error': 'Failed to stop task',
-                    'message': str(e)
-                }), 500
-
         @self.app.route('/status', methods=['GET'])
         def get_status():
             """Get comprehensive system status"""
@@ -729,6 +617,10 @@ class EnhancedOpencodeSlackServer:
                 else:
                     status['chat_statistics'] = None
 
+                # Add communication info
+                if self.communication_manager:
+                    status['communication'] = self.communication_manager.get_transport_info()
+
                 return jsonify(status)
 
             except Exception as e:
@@ -740,18 +632,25 @@ class EnhancedOpencodeSlackServer:
                 }), 500
 
     def start(self):
-        """Start the enhanced server with comprehensive error handling"""
+        """Start the WebSocket-enabled server"""
         self.running = True
 
-        # Auto-start chat system if configured and available
-        self._auto_start_chat_if_configured()
+        # Auto-start communication system if configured and available
+        self._auto_start_communication_if_configured()
 
         # Set up signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
-        self.logger.info(f"Starting Enhanced OpenCode-Slack server on {self.host}:{self.port}")
-        print(f"🚀 Enhanced OpenCode-Slack server starting on http://{self.host}:{self.port}")
+        self.logger.info(f"Starting WebSocket OpenCode-Slack server on {self.host}:{self.port}")
+        print(f"🚀 WebSocket OpenCode-Slack server starting on http://{self.host}:{self.port}")
+
+        if self.communication_manager:
+            transport_type = self.communication_manager.get_transport_type()
+            if transport_type == 'websocket':
+                print(f"🔌 WebSocket server on ws://{self.host}:{self.websocket_port}")
+            else:
+                print(f"📱 Using {transport_type} transport")
 
         if self.degraded_mode:
             print(f"⚠️  Server running in DEGRADED MODE")
@@ -761,8 +660,8 @@ class EnhancedOpencodeSlackServer:
 
         print(f"👥 {len(self.agent_manager.agents) if self.agent_manager else 0} communication agents ready")
         print("📊 Health check: GET /health")
-        print("🔧 Detailed health: GET /system/health/detailed")
-        print("💾 Create backup: POST /system/backup")
+        print("🔧 Communication info: GET /communication/info")
+        print("🔄 Switch transport: POST /communication/switch")
         print("Press Ctrl+C to stop")
 
         try:
@@ -786,39 +685,37 @@ class EnhancedOpencodeSlackServer:
             self.logger.error(f"Server error: {e}")
             self.stop()
 
-    def _auto_start_chat_if_configured(self):
-        """Auto-start chat system if properly configured"""
-        if not self.telegram_manager or not self.agent_bridge:
-            print("💬 Chat system not available due to initialization errors")
+    def _auto_start_communication_if_configured(self):
+        """Auto-start communication system if properly configured"""
+        if not self.communication_manager:
+            print("💬 Communication system not available due to initialization errors")
             return
 
         try:
-            from src.chat.chat_config import config
-
             # Check for safe mode environment variable
             safe_mode = os.environ.get('OPENCODE_SAFE_MODE', '').lower() in ['true', '1', 'yes']
 
-            if safe_mode:
+            if safe_mode and self.communication_manager.get_transport_type() == 'telegram':
                 print("🔒 Safe mode enabled - Telegram chat disabled")
-                print("   Set OPENCODE_SAFE_MODE=false to enable chat")
+                print("   Set OPENCODE_SAFE_MODE=false to enable Telegram")
                 return
 
-            if config.is_configured():
-                try:
-                    self.telegram_manager.start_polling()
+            try:
+                self.communication_manager.start_polling()
+                if self.agent_bridge:
                     self.agent_bridge.start_monitoring()
-                    self.chat_enabled = True
-                    print("💬 Chat system auto-started!")
-                    self.logger.info("Chat system auto-started")
-                except Exception as e:
-                    print(f"⚠️  Failed to auto-start chat system: {e}")
-                    print(f"💡 Try setting OPENCODE_SAFE_MODE=true to disable chat")
-                    self.logger.error(f"Failed to auto-start chat system: {e}")
-            else:
-                print("💬 Chat system not configured (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)")
+                self.chat_enabled = True
+                
+                transport_type = self.communication_manager.get_transport_type()
+                print(f"💬 {transport_type.title()} communication system auto-started!")
+                self.logger.info(f"{transport_type} communication system auto-started")
+                
+            except Exception as e:
+                print(f"⚠️  Failed to auto-start communication system: {e}")
+                self.logger.error(f"Failed to auto-start communication system: {e}")
 
         except Exception as e:
-            self.logger.error(f"Error in auto-start chat: {e}")
+            self.logger.error(f"Error in auto-start communication: {e}")
 
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals"""
@@ -827,11 +724,17 @@ class EnhancedOpencodeSlackServer:
 
     def stop(self):
         """Stop the server with comprehensive cleanup"""
-        self.logger.info("Shutting down Enhanced OpenCode-Slack server...")
+        self.logger.info("Shutting down WebSocket OpenCode-Slack server...")
         print("\n🛑 Shutting down server...")
 
-        # Stop chat system
+        # Stop communication system
         self.chat_enabled = False
+        if self.communication_manager:
+            try:
+                self.communication_manager.stop_polling()
+                print("💬 Communication system stopped")
+            except Exception as e:
+                self.logger.warning(f"Error stopping communication system: {e}")
 
         # Clean up all active sessions and release locks
         print("🧹 Cleaning up active sessions and releasing file locks...")
@@ -872,15 +775,21 @@ def main():
     """Main function with enhanced error handling"""
     import argparse
 
-    # Get default port from environment variable or use 8080
+    # Get default values from environment variables
     default_port = int(os.environ.get('PORT', 8080))
     default_host = os.environ.get('HOST', 'localhost')
+    default_websocket_port = int(os.environ.get('WEBSOCKET_PORT', 8765))
+    default_transport = os.environ.get('OPENCODE_TRANSPORT', 'websocket')
 
-    parser = argparse.ArgumentParser(description='Enhanced OpenCode-Slack Server')
+    parser = argparse.ArgumentParser(description='WebSocket OpenCode-Slack Server')
     parser.add_argument('--host', default=default_host,
-                       help=f'Host to bind to (default: {default_host}, from HOST env var)')
+                       help=f'Host to bind to (default: {default_host})')
     parser.add_argument('--port', type=int, default=default_port,
-                       help=f'Port to bind to (default: {default_port}, from PORT env var)')
+                       help=f'HTTP port to bind to (default: {default_port})')
+    parser.add_argument('--websocket-port', type=int, default=default_websocket_port,
+                       help=f'WebSocket port to bind to (default: {default_websocket_port})')
+    parser.add_argument('--transport', choices=['telegram', 'websocket'], default=default_transport,
+                       help=f'Communication transport (default: {default_transport})')
     parser.add_argument('--db-path', default='employees.db',
                        help='Database path (default: employees.db)')
     parser.add_argument('--sessions-dir', default='sessions',
@@ -891,12 +800,14 @@ def main():
     args = parser.parse_args()
 
     try:
-        server = EnhancedOpencodeSlackServer(
+        server = WebSocketOpencodeSlackServer(
             host=args.host,
             port=args.port,
+            websocket_port=args.websocket_port,
             db_path=args.db_path,
             sessions_dir=args.sessions_dir,
-            backup_dir=args.backup_dir
+            backup_dir=args.backup_dir,
+            transport_type=args.transport
         )
 
         server.start()

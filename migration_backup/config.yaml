@@ -1,0 +1,126 @@
+# OpenCode-Slack Configuration
+# Master configuration file for all environments
+# Environment-specific values are loaded from environment files
+
+# Application Configuration
+app:
+  name: "OpenCode-Slack"
+  version: "1.0.0"
+  description: "Agent Orchestration System for Slack Integration"
+
+# Server Configuration
+server:
+  host: "${SERVER_HOST:-localhost}"
+  port: "${SERVER_PORT:-8080}"
+  debug_mode: "${DEBUG_MODE:-false}"
+  max_workers: "${MAX_WORKERS:-4}"
+  request_timeout: "${REQUEST_TIMEOUT:-300}"
+  max_concurrent_sessions: "${MAX_CONCURRENT_SESSIONS:-10}"
+
+# Database Configuration
+database:
+  path: "${DATABASE_PATH:-employees.db}"
+  max_connections: "${MAX_DB_CONNECTIONS:-20}"
+  enable_wal_mode: "${ENABLE_WAL_MODE:-true}"
+  batch_size: "${BATCH_SIZE:-100}"
+  cache_ttl: "${CACHE_TTL_SECONDS:-30}"
+
+# Session Configuration
+sessions:
+  directory: "${SESSIONS_DIR:-sessions}"
+  timeout: "${SESSION_TIMEOUT:-3600}"
+
+# Logging Configuration
+logging:
+  level: "${LOG_LEVEL:-INFO}"
+  file: "${LOG_FILE:-logs/app.log}"
+  max_size: "${LOG_MAX_SIZE:-10MB}"
+  backup_count: "${LOG_BACKUP_COUNT:-5}"
+
+# Security Configuration
+security:
+  secret_key: "${SECRET_KEY}"
+  encryption_key: "${ENCRYPTION_KEY}"
+  admin_password: "${ADMIN_PASSWORD}"
+  dashboard_secret_key: "${DASHBOARD_SECRET_KEY}"
+
+# External Services Configuration
+services:
+  # Telegram Configuration
+  telegram:
+    bot_token: "${TELEGRAM_BOT_TOKEN}"
+    chat_id: "${TELEGRAM_CHAT_ID}"
+    webhook_url: "${TELEGRAM_WEBHOOK_URL}"
+  
+  # Slack Configuration
+  slack:
+    signing_secret: "${SLACK_SIGNING_SECRET}"
+    bot_token: "${SLACK_BOT_TOKEN}"
+  
+  # OpenAI Configuration
+  openai:
+    api_key: "${OPENAI_API_KEY}"
+    default_model: "${DEFAULT_MODEL:-openrouter/google/gemini-2.5-pro}"
+    models_config_file: "${MODELS_CONFIG_FILE:-config/models.json}"
+
+# Monitoring Configuration
+monitoring:
+  enabled: "${MONITORING_ENABLED:-true}"
+  metrics_interval: "${MONITORING_METRICS_INTERVAL:-30}"
+  health_check_interval: "${MONITORING_HEALTH_INTERVAL:-30}"
+  alert_interval: "${MONITORING_ALERT_INTERVAL:-15}"
+  dashboard_port: "${MONITORING_DASHBOARD_PORT:-8083}"
+  dashboard_host: "${MONITORING_DASHBOARD_HOST:-0.0.0.0}"
+  auto_recovery: "${MONITORING_AUTO_RECOVERY:-true}"
+  retention_days: "${MONITORING_RETENTION_DAYS:-30}"
+  enable_dashboard: "${MONITORING_ENABLE_DASHBOARD:-true}"
+  enable_mobile: "${MONITORING_ENABLE_MOBILE:-true}"
+
+# Alerting Configuration
+alerting:
+  # Email Alerts
+  email:
+    enabled: "${ALERT_EMAIL_ENABLED:-false}"
+    smtp_host: "${ALERT_EMAIL_SMTP_HOST}"
+    smtp_port: "${ALERT_EMAIL_SMTP_PORT:-587}"
+    smtp_user: "${ALERT_EMAIL_SMTP_USER}"
+    smtp_password: "${ALERT_EMAIL_SMTP_PASSWORD}"
+    from_email: "${ALERT_EMAIL_FROM}"
+    to_emails: "${ALERT_EMAIL_TO}"
+  
+  # Slack Alerts
+  slack:
+    enabled: "${ALERT_SLACK_ENABLED:-false}"
+    webhook_url: "${ALERT_SLACK_WEBHOOK_URL}"
+    channel: "${ALERT_SLACK_CHANNEL:-#alerts}"
+    username: "${ALERT_SLACK_USERNAME:-OpenCode-Slack Monitor}"
+  
+  # Webhook Alerts
+  webhook:
+    enabled: "${ALERT_WEBHOOK_ENABLED:-false}"
+    url: "${ALERT_WEBHOOK_URL}"
+    headers: "${ALERT_WEBHOOK_HEADERS:-{}}"
+
+# Performance Configuration
+performance:
+  max_concurrent_tasks: "${MAX_CONCURRENT_TASKS:-100}"
+  rate_limit_requests_per_minute: "${MAX_API_REQUESTS_PER_MINUTE:-100}"
+  connection_pool_size: "${CONNECTION_POOL_SIZE:-20}"
+  enable_connection_pooling: "${ENABLE_CONNECTION_POOLING:-true}"
+  enable_batch_operations: "${ENABLE_BATCH_OPERATIONS:-true}"
+  enable_query_caching: "${ENABLE_QUERY_CACHING:-true}"
+  enable_async_llm_processing: "${ENABLE_ASYNC_LLM_PROCESSING:-true}"
+  enable_http_compression: "${ENABLE_HTTP_COMPRESSION:-true}"
+
+# Project Configuration
+project:
+  root: "${PROJECT_ROOT}"
+  progress_file: "${PROGRESS_FILE_NAME:-current_task.md}"
+  completed_tasks_dir: "${COMPLETED_TASKS_DIR:-completed_tasks}"
+  opencode_command: "${OPENCODE_COMMAND:-opencode}"
+
+# Development Configuration
+development:
+  safe_mode: "${OPENCODE_SAFE_MODE:-false}"
+  async_server_url: "${ASYNC_SERVER_URL:-http://localhost:8080}"
+  opencode_server_url: "${OPENCODE_SERVER_URL:-http://localhost:8080}"

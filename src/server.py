@@ -22,9 +22,10 @@ from src.managers.file_ownership import FileOwnershipManager
 from src.trackers.task_progress import TaskProgressTracker
 from src.config.logging_config import setup_logging
 from src.utils.opencode_wrapper import OpencodeSessionManager
-from src.chat.telegram_manager import TelegramManager
+from src.chat.communication_manager import CommunicationManager
 from src.agents.agent_manager import AgentManager
 from src.bridge.agent_bridge import AgentBridge
+from src.integrations.websocket_server_integration import create_websocket_integration
 
 # Optional imports for monitoring system
 try:
@@ -62,13 +63,16 @@ def serialize_for_json(obj):
 
 
 class OpencodeSlackServer:
-    """Standalone server for opencode-slack system"""
+    """Standalone server for opencode-slack system with WebSocket support"""
 
-    def __init__(self, host="localhost", port=8080, db_path="employees.db", sessions_dir="sessions"):
+    def __init__(self, host="localhost", port=8080, websocket_port=8765, db_path="employees.db", 
+                 sessions_dir="sessions", transport_type=None):
         self.host = host
         self.port = port
+        self.websocket_port = websocket_port
         self.db_path = db_path
         self.sessions_dir = sessions_dir
+        self.transport_type = transport_type
 
         # Load environment variables
         self._load_environment()
@@ -82,9 +86,16 @@ class OpencodeSlackServer:
         self.task_tracker = TaskProgressTracker(sessions_dir)
         self.session_manager = OpencodeSessionManager(self.file_manager, sessions_dir, quiet_mode=True)
 
-        # Initialize chat system
-        self.telegram_manager = TelegramManager()
-        self.agent_manager = AgentManager(self.file_manager, self.telegram_manager)
+        # Initialize WebSocket integration
+        self.websocket_integration = create_websocket_integration(
+            host=host, 
+            websocket_port=websocket_port,
+            transport_type=transport_type
+        )
+
+        # Initialize communication system with WebSocket support
+        self.communication_manager = self.websocket_integration.communication_manager
+        self.agent_manager = AgentManager(self.file_manager, self.communication_manager)
 
         # CRITICAL FIX: Set up monitoring system BEFORE creating bridge
         # This ensures agents have proper task tracker references
@@ -94,6 +105,11 @@ class OpencodeSlackServer:
         self.agent_manager.sync_agents_with_employees()
 
         self.agent_bridge = AgentBridge(self.session_manager, self.agent_manager)
+
+        # Integrate WebSocket functionality
+        self.websocket_integration.integrate_with_server(
+            self, self.agent_manager, self.session_manager
+        )
 
         # Set up advanced monitoring system after all components are initialized
         self._setup_advanced_monitoring_system()
@@ -108,6 +124,7 @@ class OpencodeSlackServer:
         self.chat_enabled = False
 
         self.logger.info(f"OpenCode-Slack server initialized on {host}:{port}")
+        self.logger.info(f"WebSocket support available on port {websocket_port}")
 
     def _setup_advanced_monitoring_system(self):
         """Set up the production-grade monitoring system"""
@@ -389,17 +406,17 @@ class OpencodeSlackServer:
             if self.chat_enabled:
                 return jsonify({'message': 'Chat system is already running'})
 
-            from src.chat.chat_config import config
-            if not config.is_configured():
-                return jsonify({
-                    'error': 'Chat system not configured. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID'
-                }), 400
-
             try:
-                self.telegram_manager.start_polling()
-                self.agent_bridge.start_monitoring()
-                self.chat_enabled = True
-                return jsonify({'message': 'Chat system started successfully'})
+                success = self.websocket_integration.start_communication()
+                if success:
+                    self.agent_bridge.start_monitoring()
+                    self.chat_enabled = True
+                    transport_type = self.communication_manager.get_transport_type()
+                    return jsonify({
+                        'message': f'Chat system started successfully with {transport_type} transport'
+                    })
+                else:
+                    return jsonify({'error': 'Failed to start communication system'}), 500
             except Exception as e:
                 return jsonify({'error': f'Failed to start chat system: {str(e)}'}), 500
 
@@ -409,52 +426,47 @@ class OpencodeSlackServer:
             if not self.chat_enabled:
                 return jsonify({'error': 'Chat system is not running'}), 400
 
-            self.telegram_manager.stop_polling()
+            self.websocket_integration.stop_communication()
             self.chat_enabled = False
             return jsonify({'message': 'Chat system stopped'})
 
         @self.app.route('/chat/status', methods=['GET'])
         def get_chat_status():
             """Get chat system status"""
-            from src.chat.chat_config import config
-
+            transport_info = self.communication_manager.get_transport_info()
+            
             return jsonify({
-                'configured': config.is_configured(),
-                'connected': self.telegram_manager.is_connected(),
+                'transport_type': self.communication_manager.get_transport_type(),
+                'transport_info': transport_info,
+                'connected': self.communication_manager.is_connected(),
                 'polling': self.chat_enabled,
-                'statistics': self.agent_manager.get_chat_statistics()
+                'statistics': self.agent_manager.get_chat_statistics(),
+                'websocket_integration': self.websocket_integration.get_integration_status()
             })
 
         @self.app.route('/chat/debug', methods=['GET'])
         def get_chat_debug():
             """Get detailed chat debug information"""
-            from src.chat.chat_config import config
-
             debug_info = {
-                'configured': config.is_configured(),
-                'connected': self.telegram_manager.is_connected(),
+                'transport_type': self.communication_manager.get_transport_type(),
+                'transport_info': self.communication_manager.get_transport_info(),
+                'connected': self.communication_manager.is_connected(),
                 'polling': self.chat_enabled,
-                'statistics': self.agent_manager.get_chat_statistics()
+                'statistics': self.agent_manager.get_chat_statistics(),
+                'websocket_integration': self.websocket_integration.get_integration_status()
             }
 
-            # Add webhook information
-            try:
-                webhook_info = self.telegram_manager.get_webhook_info()
-                debug_info['webhook_info'] = webhook_info
-            except Exception as e:
-                debug_info['webhook_error'] = str(e)
-
-            # Add bot information
-            try:
-                import requests
-                url = f"{self.telegram_manager.base_url}/getMe"
-                response = requests.get(url, timeout=5)
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get('ok'):
-                        debug_info['bot_info'] = data.get('result', {})
-            except Exception as e:
-                debug_info['bot_info_error'] = str(e)
+            # Add transport-specific debug info
+            transport_type = self.communication_manager.get_transport_type()
+            if transport_type == 'websocket':
+                debug_info['connected_users'] = self.websocket_integration.get_connected_users()
+            elif transport_type == 'telegram':
+                # Add Telegram-specific debug info
+                try:
+                    if hasattr(self.communication_manager.transport, 'get_webhook_info'):
+                        debug_info['webhook_info'] = self.communication_manager.transport.get_webhook_info()
+                except Exception as e:
+                    debug_info['webhook_error'] = str(e)
 
             return jsonify(debug_info)
 
@@ -468,10 +480,10 @@ class OpencodeSlackServer:
             if not message:
                 return jsonify({'error': 'Message is required'}), 400
 
-            if not self.telegram_manager.is_connected():
+            if not self.communication_manager.is_connected():
                 return jsonify({'error': 'Chat system not connected'}), 400
 
-            success = self.telegram_manager.send_message(message, sender)
+            success = self.communication_manager.send_message(message, sender)
             if success:
                 return jsonify({'message': 'Message sent successfully'})
             else:
@@ -488,6 +500,53 @@ class OpencodeSlackServer:
             """Get agent bridge status"""
             bridge_status = self.agent_bridge.get_bridge_status()
             return jsonify({'bridge': bridge_status})
+
+        # WebSocket-specific routes
+        @self.app.route('/websocket/switch', methods=['POST'])
+        def switch_to_websocket():
+            """Switch to WebSocket transport"""
+            data = request.get_json() or {}
+            host = data.get('host', self.host)
+            port = data.get('port', self.websocket_port)
+            
+            success = self.websocket_integration.switch_transport('websocket', host=host, port=port)
+            
+            if success:
+                return jsonify({
+                    'message': 'Successfully switched to WebSocket transport',
+                    'transport_info': self.communication_manager.get_transport_info()
+                })
+            else:
+                return jsonify({'error': 'Failed to switch to WebSocket transport'}), 500
+
+        @self.app.route('/websocket/users', methods=['GET'])
+        def get_websocket_users():
+            """Get connected WebSocket users"""
+            if self.communication_manager.get_transport_type() == 'websocket':
+                users = self.websocket_integration.get_connected_users()
+                return jsonify({'connected_users': users})
+            else:
+                return jsonify({'error': 'WebSocket transport not active'}), 400
+
+        @self.app.route('/websocket/broadcast', methods=['POST'])
+        def websocket_broadcast():
+            """Broadcast message to all WebSocket clients"""
+            if self.communication_manager.get_transport_type() != 'websocket':
+                return jsonify({'error': 'WebSocket transport not active'}), 400
+                
+            data = request.get_json()
+            message = data.get('message')
+            sender = data.get('sender', 'system')
+            
+            if not message:
+                return jsonify({'error': 'Message is required'}), 400
+                
+            success = self.communication_manager.send_message(message, sender)
+            
+            if success:
+                return jsonify({'message': 'Broadcast sent successfully'})
+            else:
+                return jsonify({'error': 'Failed to send broadcast'}), 500
 
         @self.app.route('/project-root', methods=['GET'])
         def get_project_root():
@@ -828,29 +887,28 @@ class OpencodeSlackServer:
 
     def _auto_start_chat_if_configured(self):
         """Auto-start chat system if properly configured"""
-        from src.chat.chat_config import config
-
         # Check for safe mode environment variable
         safe_mode = os.environ.get('OPENCODE_SAFE_MODE', '').lower() in ['true', '1', 'yes']
 
         if safe_mode:
-            print("🔒 Safe mode enabled - Telegram chat disabled")
-            print("   Set OPENCODE_SAFE_MODE=false to enable chat")
+            print("🔒 Safe mode enabled - Communication system disabled")
+            print("   Set OPENCODE_SAFE_MODE=false to enable communication")
             return
 
-        if config.is_configured():
-            try:
-                self.telegram_manager.start_polling()
+        try:
+            success = self.websocket_integration.start_communication()
+            if success:
                 self.agent_bridge.start_monitoring()
                 self.chat_enabled = True
-                print("💬 Chat system auto-started!")
-                self.logger.info("Chat system auto-started")
-            except Exception as e:
-                print(f"⚠️  Failed to auto-start chat system: {e}")
-                print(f"💡 Try setting OPENCODE_SAFE_MODE=true to disable chat")
-                self.logger.error(f"Failed to auto-start chat system: {e}")
-        else:
-            print("💬 Chat system not configured (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)")
+                transport_type = self.communication_manager.get_transport_type()
+                print(f"💬 {transport_type.title()} communication system auto-started!")
+                self.logger.info(f"{transport_type} communication system auto-started")
+            else:
+                print("⚠️  Failed to auto-start communication system")
+        except Exception as e:
+            print(f"⚠️  Failed to auto-start communication system: {e}")
+            print(f"💡 Try setting OPENCODE_SAFE_MODE=true to disable communication")
+            self.logger.error(f"Failed to auto-start communication system: {e}")
 
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals"""
@@ -879,8 +937,14 @@ class OpencodeSlackServer:
             except Exception as e:
                 self.logger.error(f"Error stopping health monitor: {e}")
 
-        # Stop chat system immediately
+        # Stop communication system
         self.chat_enabled = False
+        if hasattr(self, 'websocket_integration'):
+            try:
+                self.websocket_integration.stop_communication()
+                print("💬 Communication system stopped")
+            except Exception as e:
+                self.logger.warning(f"Error stopping communication system: {e}")
 
         # Clean up all active sessions and release locks
         print("🧹 Cleaning up active sessions and releasing file locks...")
@@ -907,13 +971,17 @@ def main():
     """Main function"""
     import argparse
 
-    # Get default port from environment variable or use 8080
+    # Get default values from environment variables
     default_port = int(os.environ.get('PORT', 8080))
     default_host = os.environ.get('HOST', 'localhost')
+    default_websocket_port = int(os.environ.get('WEBSOCKET_PORT', 8765))
+    default_transport = os.environ.get('OPENCODE_TRANSPORT', 'websocket')
 
-    parser = argparse.ArgumentParser(description='OpenCode-Slack Server')
-    parser.add_argument('--host', default=default_host, help=f'Host to bind to (default: {default_host}, from HOST env var)')
-    parser.add_argument('--port', type=int, default=default_port, help=f'Port to bind to (default: {default_port}, from PORT env var)')
+    parser = argparse.ArgumentParser(description='OpenCode-Slack Server with WebSocket Support')
+    parser.add_argument('--host', default=default_host, help=f'Host to bind to (default: {default_host})')
+    parser.add_argument('--port', type=int, default=default_port, help=f'HTTP port to bind to (default: {default_port})')
+    parser.add_argument('--websocket-port', type=int, default=default_websocket_port, help=f'WebSocket port to bind to (default: {default_websocket_port})')
+    parser.add_argument('--transport', choices=['telegram', 'websocket'], default=default_transport, help=f'Communication transport (default: {default_transport})')
     parser.add_argument('--db-path', default='employees.db', help='Database path (default: employees.db)')
     parser.add_argument('--sessions-dir', default='sessions', help='Sessions directory (default: sessions)')
 
@@ -922,8 +990,10 @@ def main():
     server = OpencodeSlackServer(
         host=args.host,
         port=args.port,
+        websocket_port=args.websocket_port,
         db_path=args.db_path,
-        sessions_dir=args.sessions_dir
+        sessions_dir=args.sessions_dir,
+        transport_type=args.transport
     )
 
     server.start()

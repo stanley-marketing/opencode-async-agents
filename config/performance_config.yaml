@@ -1,0 +1,169 @@
+# High-Performance WebSocket Configuration
+# Optimized for 1000+ concurrent users with <100ms latency
+
+websocket:
+  # Server configuration
+  server:
+    host: "0.0.0.0"
+    port: 8765
+    max_connections: 2000
+    ping_interval: 20
+    ping_timeout: 10
+    close_timeout: 5
+    max_message_size: 10485760  # 10MB
+    max_queue_size: 1000
+    
+  # Performance optimizations
+  performance:
+    enable_compression: true
+    compression_threshold: 1024  # bytes
+    enable_uvloop: true
+    enable_fast_json: true  # Use orjson
+    enable_connection_pooling: true
+    enable_message_batching: true
+    batch_size: 50
+    batch_timeout: 0.01  # 10ms
+    
+  # Connection pool settings
+  connection_pool:
+    max_groups: 50
+    default_group_size: 100
+    load_balance_strategy: "round_robin"  # round_robin, least_connections, weighted
+    cleanup_interval: 60  # seconds
+    stale_connection_timeout: 300  # seconds
+    
+  # Message queue settings
+  message_queue:
+    max_workers: 10
+    max_queue_depth: 10000
+    enable_persistence: true
+    persistence_dir: "./queue_data"
+    enable_dead_letter_queue: true
+    max_retries: 3
+    confirmation_timeout: 30  # seconds
+    
+  # Rate limiting
+  rate_limiting:
+    enabled: true
+    global_rate_limit: 10000  # messages per second
+    per_user_rate_limit: 100  # messages per minute
+    burst_allowance: 5
+    
+  # Monitoring and metrics
+  monitoring:
+    enable_metrics_collection: true
+    metrics_collection_interval: 1  # seconds
+    metrics_persistence_file: "./metrics/websocket_metrics.json"
+    enable_performance_alerts: true
+    enable_resource_monitoring: true
+    
+  # Alert thresholds
+  alerts:
+    latency_p95_ms: 100.0
+    latency_p99_ms: 200.0
+    cpu_usage_percent: 80.0
+    memory_usage_percent: 85.0
+    error_rate_percent: 5.0
+    connection_limit_percent: 90.0
+    message_queue_depth: 1000
+
+# Load testing configuration
+load_testing:
+  # Test scenarios
+  scenarios:
+    baseline:
+      max_connections: 100
+      test_duration: 180
+      messages_per_minute: 10
+      target_latency_p95: 50.0
+      target_throughput: 100.0
+      
+    moderate:
+      max_connections: 500
+      test_duration: 300
+      messages_per_minute: 15
+      target_latency_p95: 75.0
+      target_throughput: 500.0
+      
+    high_load:
+      max_connections: 1000
+      test_duration: 300
+      messages_per_minute: 20
+      target_latency_p95: 100.0
+      target_throughput: 1000.0
+      
+    extreme:
+      max_connections: 2000
+      test_duration: 300
+      messages_per_minute: 25
+      target_latency_p95: 150.0
+      target_throughput: 2000.0
+  
+  # Test configuration
+  config:
+    connection_ramp_rate: 50  # connections per second
+    warmup_duration: 30
+    cooldown_duration: 30
+    message_size_bytes: 1024
+    message_burst_probability: 0.1
+    message_burst_size: 5
+    enable_stress_test: true
+    enable_spike_test: true
+    enable_endurance_test: true
+    enable_connection_churn_test: true
+
+# System optimization
+system:
+  # Thread pool settings
+  thread_pools:
+    websocket_workers: 10
+    serialization_workers: 5
+    metrics_workers: 2
+    
+  # Memory management
+  memory:
+    enable_gc_optimization: true
+    gc_threshold_0: 700
+    gc_threshold_1: 10
+    gc_threshold_2: 10
+    
+  # Network optimization
+  network:
+    tcp_nodelay: true
+    tcp_keepalive: true
+    socket_reuse_port: true
+    
+  # Logging optimization
+  logging:
+    level: "INFO"
+    enable_async_logging: true
+    log_rotation: true
+    max_log_size: "100MB"
+    backup_count: 5
+
+# Production deployment
+production:
+  # Scaling configuration
+  scaling:
+    enable_horizontal_scaling: false
+    load_balancer_type: "nginx"  # nginx, haproxy, aws_alb
+    health_check_endpoint: "/health"
+    
+  # Security
+  security:
+    enable_rate_limiting: true
+    enable_ddos_protection: true
+    max_connections_per_ip: 100
+    
+  # Monitoring
+  monitoring:
+    enable_prometheus_metrics: true
+    prometheus_port: 9090
+    enable_grafana_dashboard: true
+    enable_alertmanager: true
+    
+  # Backup and recovery
+  backup:
+    enable_metrics_backup: true
+    backup_interval: 3600  # seconds
+    backup_retention_days: 30

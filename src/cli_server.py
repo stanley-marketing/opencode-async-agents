@@ -21,7 +21,7 @@ from src.managers.file_ownership import FileOwnershipManager
 from src.trackers.task_progress import TaskProgressTracker
 from src.config.logging_config import setup_logging
 from src.utils.opencode_wrapper import OpencodeSessionManager
-from src.chat.telegram_manager import TelegramManager
+from src.chat.communication_manager import CommunicationManager
 from src.agents.agent_manager import AgentManager
 from src.bridge.agent_bridge import AgentBridge
 from src.config.models_config import models_config
@@ -50,9 +50,9 @@ class CLIServer:
         self.session_manager = OpencodeSessionManager(self.file_manager, sessions_dir, quiet_mode=True)
         self.task_tracker = self.session_manager.task_tracker  # Use the session manager's task tracker
 
-        # Initialize chat system
-        self.telegram_manager = TelegramManager()
-        self.agent_manager = AgentManager(self.file_manager, self.telegram_manager)
+        # Initialize communication system with WebSocket support
+        self.communication_manager = CommunicationManager()
+        self.agent_manager = AgentManager(self.file_manager, self.communication_manager)
         self.agent_bridge = AgentBridge(self.session_manager, self.agent_manager)
         self.chat_enabled = False
         self.running = True
@@ -77,23 +77,22 @@ class CLIServer:
         self._auto_start_chat_if_configured()
 
     def _auto_start_chat_if_configured(self):
-        """Auto-start chat system if properly configured"""
-        from src.chat.chat_config import config
-
-        if config.is_configured():
-            try:
-                self.telegram_manager.start_polling()
-                self.agent_bridge.start_monitoring()
-                self.chat_enabled = True
-                print("🚀 Chat system auto-started!")
-                print(f"👥 {len(self.agent_manager.agents)} communication agents ready")
+        """Auto-start communication system if properly configured"""
+        try:
+            self.communication_manager.start_polling()
+            self.agent_bridge.start_monitoring()
+            self.chat_enabled = True
+            transport_type = self.communication_manager.get_transport_type()
+            print(f"🚀 {transport_type.title()} communication system auto-started!")
+            print(f"👥 {len(self.agent_manager.agents)} communication agents ready")
+            if transport_type == 'telegram':
                 print("💬 Employees can now be mentioned in the Telegram group")
-            except Exception as e:
-                print(f"⚠️  Failed to auto-start chat system: {e}")
-                print("   Use 'chat-start' to start manually")
-        else:
-            print("💬 Chat system not configured (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)")
-            print("   See TELEGRAM_SETUP.md for setup instructions")
+            elif transport_type == 'websocket':
+                transport_info = self.communication_manager.get_transport_info()
+                print(f"🔌 WebSocket server running on {transport_info.get('host', 'localhost')}:{transport_info.get('port', 8765)}")
+        except Exception as e:
+            print(f"⚠️  Failed to auto-start communication system: {e}")
+            print("   Use 'chat-start' to start manually")
 
     def load_history(self):
         """Load command history from file"""
@@ -407,6 +406,8 @@ class CLIServer:
             self.handle_chat_stop(parts[1:])
         elif command == "chat-status":
             self.handle_chat_status(parts[1:])
+        elif command == "chat-switch":
+            self.handle_chat_switch(parts[1:])
         elif command == "agents":
             self.handle_agents(parts[1:])
         elif command == "bridge":
@@ -451,11 +452,12 @@ class CLIServer:
         print("  models                          - Show configured models")
         print("  model-set <level> <model>       - Set model for smartness level")
         print("")
-        print("🔥 CHAT COMMANDS:")
-        print("  chat <message>                  - Send message to Telegram group")
-        print("  chat-start                      - Start Telegram chat system")
-        print("  chat-stop                       - Stop Telegram chat system")
-        print("  chat-status                     - Show chat system status")
+        print("🔥 COMMUNICATION COMMANDS:")
+        print("  chat <message>                  - Send message to communication system")
+        print("  chat-start                      - Start communication system")
+        print("  chat-stop                       - Stop communication system")
+        print("  chat-status                     - Show communication system status")
+        print("  chat-switch <transport>         - Switch transport (telegram/websocket)")
         print("  agents                          - Show communication agents status")
         print("  bridge                          - Show agent bridge status")
         print("  employees                       - List all employees and their status")
@@ -861,18 +863,18 @@ class CLIServer:
         print(f"✅ Active sessions remaining: {len(active)}")
 
     def handle_chat(self, args):
-        """Handle chat command - send message to Telegram group"""
+        """Handle chat command - send message to communication system"""
         if not args:
             print("Usage: chat <message>")
             return
 
         message = " ".join(args)
 
-        if not self.telegram_manager.is_connected():
-            print("❌ Chat system not connected. Use 'chat-start' first.")
+        if not self.communication_manager.is_connected():
+            print("❌ Communication system not connected. Use 'chat-start' first.")
             return
 
-        success = self.telegram_manager.send_message(message, "system")
+        success = self.communication_manager.send_message(message, "system")
         if success:
             print(f"✅ Message sent to chat: {message}")
         else:
@@ -881,52 +883,57 @@ class CLIServer:
     def handle_chat_start(self, args):
         """Handle chat-start command"""
         if self.chat_enabled:
-            print("✅ Chat system is already running")
-            return
-
-        from src.chat.chat_config import config
-        if not config.is_configured():
-            print("❌ Chat system not configured.")
-            print("Please set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID environment variables.")
-            print("See TELEGRAM_SETUP.md for instructions.")
+            print("✅ Communication system is already running")
             return
 
         try:
-            self.telegram_manager.start_polling()
+            self.communication_manager.start_polling()
             self.agent_bridge.start_monitoring()
             self.chat_enabled = True
-            print("🚀 Chat system started!")
-            print("💬 Employees can now be mentioned in the Telegram group")
+            transport_type = self.communication_manager.get_transport_type()
+            print(f"🚀 {transport_type.title()} communication system started!")
+            if transport_type == 'telegram':
+                print("💬 Employees can now be mentioned in the Telegram group")
+            elif transport_type == 'websocket':
+                transport_info = self.communication_manager.get_transport_info()
+                print(f"🔌 WebSocket server running on {transport_info.get('host', 'localhost')}:{transport_info.get('port', 8765)}")
             print("🔄 Task monitoring active")
         except Exception as e:
-            print(f"❌ Failed to start chat system: {e}")
+            print(f"❌ Failed to start communication system: {e}")
 
     def handle_chat_stop(self, args):
         """Handle chat-stop command"""
         if not self.chat_enabled:
-            print("❌ Chat system is not running")
+            print("❌ Communication system is not running")
             return
 
-        self.telegram_manager.stop_polling()
+        self.communication_manager.stop_polling()
         self.chat_enabled = False
-        print("🛑 Chat system stopped")
+        print("🛑 Communication system stopped")
 
     def handle_chat_status(self, args):
         """Handle chat-status command"""
-        from src.chat.chat_config import config
-
-        print("📊 CHAT SYSTEM STATUS")
+        print("📊 COMMUNICATION SYSTEM STATUS")
         print("=" * 50)
 
-        # Configuration status
-        print(f"🔧 Configuration: {'✅ Ready' if config.is_configured() else '❌ Not configured'}")
-        print(f"🤖 Bot Token: {'✅ Set' if config.bot_token else '❌ Missing'}")
-        print(f"💬 Chat ID: {'✅ Set' if config.chat_id else '❌ Missing'}")
-
-        # Connection status
-        connected = self.telegram_manager.is_connected()
-        print(f"🌐 Connection: {'✅ Connected' if connected else '❌ Disconnected'}")
+        # Transport information
+        transport_type = self.communication_manager.get_transport_type()
+        transport_info = self.communication_manager.get_transport_info()
+        
+        print(f"🚀 Transport Type: {transport_type.title()}")
+        print(f"🌐 Connection: {'✅ Connected' if self.communication_manager.is_connected() else '❌ Disconnected'}")
         print(f"🔄 Polling: {'✅ Active' if self.chat_enabled else '❌ Stopped'}")
+
+        # Transport-specific information
+        if transport_type == 'websocket':
+            print(f"🔌 WebSocket Host: {transport_info.get('host', 'localhost')}")
+            print(f"🔌 WebSocket Port: {transport_info.get('port', 8765)}")
+            if 'connected_users' in transport_info:
+                print(f"👤 Connected Users: {len(transport_info['connected_users'])}")
+        elif transport_type == 'telegram':
+            from src.chat.chat_config import config
+            print(f"🤖 Bot Token: {'✅ Set' if config.bot_token else '❌ Missing'}")
+            print(f"💬 Chat ID: {'✅ Set' if config.chat_id else '❌ Missing'}")
 
         # Agent statistics
         stats = self.agent_manager.get_chat_statistics()
@@ -935,6 +942,36 @@ class CLIServer:
         print(f"😴 Idle: {stats['idle_agents']}")
         print(f"🆘 Stuck: {stats['stuck_agents']}")
         print(f"📬 Pending Help Requests: {stats['pending_help_requests']}")
+        
+    def handle_chat_switch(self, args):
+        """Handle chat-switch command"""
+        if not args:
+            print("Usage: chat-switch <transport>")
+            print("Available transports: telegram, websocket")
+            return
+            
+        transport_type = args[0].lower()
+        
+        if transport_type not in ['telegram', 'websocket']:
+            print("❌ Invalid transport type. Use 'telegram' or 'websocket'")
+            return
+            
+        current_transport = self.communication_manager.get_transport_type()
+        if transport_type == current_transport:
+            print(f"✅ Already using {transport_type} transport")
+            return
+            
+        try:
+            success = self.communication_manager.switch_transport(transport_type)
+            if success:
+                print(f"✅ Successfully switched to {transport_type} transport")
+                if self.chat_enabled:
+                    print("🔄 Restarting communication system...")
+                    self.communication_manager.start_polling()
+            else:
+                print(f"❌ Failed to switch to {transport_type} transport")
+        except Exception as e:
+            print(f"❌ Error switching transport: {e}")
 
     def handle_agents(self, args):
         """Handle agents command - show communication agents status"""

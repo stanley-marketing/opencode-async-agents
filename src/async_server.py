@@ -32,9 +32,10 @@ from src.managers.optimized_file_ownership import OptimizedFileOwnershipManager
 from src.trackers.task_progress import TaskProgressTracker
 from src.config.logging_config import setup_logging
 from src.utils.async_opencode_wrapper import AsyncOpencodeSessionManager
-from src.chat.telegram_manager import TelegramManager
+from src.chat.communication_manager import CommunicationManager
 from src.agents.agent_manager import AgentManager
 from src.bridge.agent_bridge import AgentBridge
+from src.integrations.websocket_server_integration import create_websocket_integration
 
 # Optional imports for monitoring system
 try:
@@ -107,15 +108,17 @@ class RateLimiter:
 class AsyncOpencodeSlackServer:
     """High-performance async OpenCode-Slack server"""
 
-    def __init__(self, host: str = "localhost", port: int = 8080,
+    def __init__(self, host: str = "localhost", port: int = 8080, websocket_port: int = 8765,
                  db_path: str = "employees.db", sessions_dir: str = "sessions",
-                 max_concurrent_tasks: int = 50, max_connections: int = 20):
+                 max_concurrent_tasks: int = 50, max_connections: int = 20, transport_type: str = None):
         self.host = host
         self.port = port
+        self.websocket_port = websocket_port
         self.db_path = db_path
         self.sessions_dir = sessions_dir
         self.max_concurrent_tasks = max_concurrent_tasks
         self.max_connections = max_connections
+        self.transport_type = transport_type
 
         # Server state
         self.running = False
@@ -138,12 +141,13 @@ class AsyncOpencodeSlackServer:
         self.file_manager = None
         self.task_tracker = None
         self.session_manager = None
-        self.telegram_manager = None
+        self.communication_manager = None
         self.agent_manager = None
         self.agent_bridge = None
         self.health_monitor = None
         self.recovery_manager = None
         self.monitoring_dashboard = None
+        self.websocket_integration = None
 
         # Create FastAPI app
         self.app = self._create_app()
@@ -246,8 +250,10 @@ class AsyncOpencodeSlackServer:
         logger.info("Shutting down AsyncOpencodeSlackServer...")
 
         try:
-            # Stop chat system
+            # Stop communication system
             self.chat_enabled = False
+            if self.websocket_integration:
+                self.websocket_integration.stop_communication()
 
             # Clean up all active sessions
             if self.session_manager:
@@ -296,9 +302,16 @@ class AsyncOpencodeSlackServer:
             max_concurrent_sessions=self.max_concurrent_tasks
         )
 
-        # Initialize chat system
-        self.telegram_manager = TelegramManager()
-        self.agent_manager = AgentManager(self.file_manager, self.telegram_manager)
+        # Initialize WebSocket integration
+        self.websocket_integration = create_websocket_integration(
+            host=self.host,
+            websocket_port=self.websocket_port,
+            transport_type=self.transport_type
+        )
+        
+        # Initialize communication system
+        self.communication_manager = self.websocket_integration.communication_manager
+        self.agent_manager = AgentManager(self.file_manager, self.communication_manager)
 
         # Set up monitoring system
         self.agent_manager.setup_monitoring_system(self.task_tracker, self.session_manager)
@@ -307,6 +320,11 @@ class AsyncOpencodeSlackServer:
         self.agent_manager.sync_agents_with_employees()
 
         self.agent_bridge = AgentBridge(self.session_manager, self.agent_manager)
+        
+        # Integrate WebSocket functionality
+        self.websocket_integration.integrate_with_server(
+            self, self.agent_manager, self.session_manager
+        )
 
         # Initialize advanced monitoring if available
         if MONITORING_AVAILABLE:
@@ -347,26 +365,25 @@ class AsyncOpencodeSlackServer:
             logger.error(f"Error handling agent anomaly: {e}")
 
     async def _auto_start_chat_if_configured(self):
-        """Auto-start chat system if configured"""
+        """Auto-start communication system if configured"""
         try:
-            from src.chat.chat_config import config
-
             safe_mode = os.environ.get('OPENCODE_SAFE_MODE', '').lower() in ['true', '1', 'yes']
 
             if safe_mode:
-                logger.info("Safe mode enabled - Telegram chat disabled")
+                logger.info("Safe mode enabled - Communication system disabled")
                 return
 
-            if config.is_configured():
-                self.telegram_manager.start_polling()
+            success = self.websocket_integration.start_communication()
+            if success:
                 self.agent_bridge.start_monitoring()
                 self.chat_enabled = True
-                logger.info("Chat system auto-started")
+                transport_type = self.communication_manager.get_transport_type()
+                logger.info(f"{transport_type} communication system auto-started")
             else:
-                logger.info("Chat system not configured")
+                logger.info("Communication system failed to start")
 
         except Exception as e:
-            logger.error(f"Failed to auto-start chat system: {e}")
+            logger.error(f"Failed to auto-start communication system: {e}")
 
     def _add_routes(self, app: FastAPI):
         """Add all API routes"""
@@ -780,10 +797,14 @@ def main():
     # Get default values from environment
     default_port = int(os.environ.get('PORT', 8080))
     default_host = os.environ.get('HOST', 'localhost')
+    default_websocket_port = int(os.environ.get('WEBSOCKET_PORT', 8765))
+    default_transport = os.environ.get('OPENCODE_TRANSPORT', 'websocket')
 
-    parser = argparse.ArgumentParser(description='Async OpenCode-Slack Server')
+    parser = argparse.ArgumentParser(description='Async OpenCode-Slack Server with WebSocket Support')
     parser.add_argument('--host', default=default_host, help=f'Host to bind to (default: {default_host})')
-    parser.add_argument('--port', type=int, default=default_port, help=f'Port to bind to (default: {default_port})')
+    parser.add_argument('--port', type=int, default=default_port, help=f'HTTP port to bind to (default: {default_port})')
+    parser.add_argument('--websocket-port', type=int, default=default_websocket_port, help=f'WebSocket port to bind to (default: {default_websocket_port})')
+    parser.add_argument('--transport', choices=['telegram', 'websocket'], default=default_transport, help=f'Communication transport (default: {default_transport})')
     parser.add_argument('--db-path', default='employees.db', help='Database path (default: employees.db)')
     parser.add_argument('--sessions-dir', default='sessions', help='Sessions directory (default: sessions)')
     parser.add_argument('--max-concurrent-tasks', type=int, default=50, help='Max concurrent tasks (default: 50)')
@@ -798,13 +819,17 @@ def main():
     server = AsyncOpencodeSlackServer(
         host=args.host,
         port=args.port,
+        websocket_port=args.websocket_port,
         db_path=args.db_path,
         sessions_dir=args.sessions_dir,
         max_concurrent_tasks=args.max_concurrent_tasks,
-        max_connections=args.max_connections
+        max_connections=args.max_connections,
+        transport_type=args.transport
     )
 
     print(f"🚀 Starting Async OpenCode-Slack Server on http://{args.host}:{args.port}")
+    print(f"🔌 WebSocket support on port {args.websocket_port}")
+    print(f"📡 Using {args.transport} transport")
     print(f"📊 Max concurrent tasks: {args.max_concurrent_tasks}")
     print(f"🔗 Max DB connections: {args.max_connections}")
     print("Press Ctrl+C to stop")
