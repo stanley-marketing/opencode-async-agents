@@ -1,0 +1,255 @@
+{
+  "test_summary": {
+    "start_time": "2025-08-09T10:27:52.208974",
+    "end_time": "2025-08-09T10:33:50.838420",
+    "duration_seconds": 358.629446,
+    "test_environment": "/tmp/tmpigotbh98"
+  },
+  "overall_metrics": {
+    "test_duration_seconds": 358.629446,
+    "total_messages_processed": 0,
+    "total_errors": 0,
+    "overall_error_rate": 0,
+    "average_throughput": 0.0
+  },
+  "detailed_results": {
+    "high_frequency": {
+      "messages_per_second": [
+        {
+          "target_frequency": 10,
+          "actual_frequency": 9.941853380332406,
+          "messages_sent": 100,
+          "errors": 0,
+          "error_rate": 0.0,
+          "avg_response_time": 0.0024555158615112305,
+          "max_response_time": 0.01269674301147461
+        },
+        {
+          "target_frequency": 50,
+          "actual_frequency": 49.62760030662627,
+          "messages_sent": 497,
+          "errors": 0,
+          "error_rate": 0.0,
+          "avg_response_time": 0.0006302146604603205,
+          "max_response_time": 0.002082347869873047
+        },
+        {
+          "target_frequency": 100,
+          "actual_frequency": 98.68436552026553,
+          "messages_sent": 987,
+          "errors": 0,
+          "error_rate": 0.0,
+          "avg_response_time": 0.0009618237871287925,
+          "max_response_time": 0.004201173782348633
+        },
+        {
+          "target_frequency": 200,
+          "actual_frequency": 195.65550722532475,
+          "messages_sent": 1957,
+          "errors": 0,
+          "error_rate": 0.0,
+          "avg_response_time": 0.000531427946758319,
+          "max_response_time": 0.003217935562133789
+        },
+        {
+          "target_frequency": 500,
+          "actual_frequency": 476.48653801566246,
+          "messages_sent": 4765,
+          "errors": 0,
+          "error_rate": 0.0,
+          "avg_response_time": 0.0004449125852314648,
+          "max_response_time": 0.0036439895629882812
+        }
+      ],
+      "response_times": [],
+      "error_rate": 0,
+      "peak_throughput": 476.48653801566246
+    },
+    "concurrent_operations": {
+      "thread_counts": [
+        {
+          "threads": 1,
+          "total_messages": 20,
+          "total_errors": 0,
+          "error_rate": 0.0,
+          "duration": 0.01411581039428711,
+          "throughput": 1416.8509948316048,
+          "avg_response_time": 0.0006327509880065918,
+          "memory_increase": 0.125,
+          "cpu_usage": 74.5
+        },
+        {
+          "threads": 5,
+          "total_messages": 100,
+          "total_errors": 0,
+          "error_rate": 0.0,
+          "duration": 0.08135724067687988,
+          "throughput": 1229.146897903803,
+          "avg_response_time": 0.0038893818855285645,
+          "memory_increase": 0.125,
+          "cpu_usage": 111.3
+        },
+        {
+          "threads": 10,
+          "total_messages": 200,
+          "total_errors": 0,
+          "error_rate": 0.0,
+          "duration": 0.1668250560760498,
+          "throughput": 1198.860678990732,
+          "avg_response_time": 0.007998983860015869,
+          "memory_increase": 0.25,
+          "cpu_usage": 108.3
+        },
+        {
+          "threads": 20,
+          "total_messages": 400,
+          "total_errors": 0,
+          "error_rate": 0.0,
+          "duration": 0.3258168697357178,
+          "throughput": 1227.6835153577374,
+          "avg_response_time": 0.01570738971233368,
+          "memory_increase": 0.25,
+          "cpu_usage": 117.1
+        },
+        {
+          "threads": 50,
+          "total_messages": 1000,
+          "total_errors": 0,
+          "error_rate": 0.0,
+          "duration": 0.9205265045166016,
+          "throughput": 1086.3348258778628,
+          "avg_response_time": 0.04439128923416138,
+          "memory_increase": 1.125,
+          "cpu_usage": 112.2
+        }
+      ],
+      "performance_degradation": [],
+      "error_rates": [],
+      "resource_usage": []
+    },
+    "memory_stress": {
+      "initial_memory": 93.64453125,
+      "peak_memory": 93.64453125,
+      "memory_growth": [
+        {
+          "batch": 0,
+          "start_memory": 93.64453125,
+          "end_memory": 93.64453125,
+          "growth": 0.0
+        },
+        {
+          "batch": 1,
+          "start_memory": 93.64453125,
+          "end_memory": 93.64453125,
+          "growth": 0.0
+        },
+        {
+          "batch": 2,
+          "start_memory": 93.64453125,
+          "end_memory": 93.64453125,
+          "growth": 0.0
+        },
+        {
+          "batch": 3,
+          "start_memory": 93.64453125,
+          "end_memory": 93.64453125,
+          "growth": 0.0
+        },
+        {
+          "batch": 4,
+          "start_memory": 93.64453125,
+          "end_memory": 93.64453125,
+          "growth": 0.0
+        },
+        {
+          "batch": 5,
+          "start_memory": 93.64453125,
+          "end_memory": 93.64453125,
+          "growth": 0.0
+        },
+        {
+          "batch": 6,
+          "start_memory": 93.64453125,
+          "end_memory": 93.64453125,
+          "growth": 0.0
+        },
+        {
+          "batch": 7,
+          "start_memory": 93.64453125,
+          "end_memory": 93.64453125,
+          "growth": 0.0
+        },
+        {
+          "batch": 8,
+          "start_memory": 93.64453125,
+          "end_memory": 93.64453125,
+          "growth": 0.0
+        },
+        {
+          "batch": 9,
+          "start_memory": 93.64453125,
+          "end_memory": 93.64453125,
+          "growth": 0.0
+        }
+      ],
+      "gc_collections": 13
+    },
+    "long_running_stability": {
+      "duration_minutes": 5,
+      "messages_sent": 2964,
+      "errors": 0,
+      "performance_degradation": [
+        {
+          "minute": 1,
+          "response_time": 0.0007700920104980469,
+          "memory_usage": 93.64453125,
+          "messages_per_minute": 593.7114725137673
+        },
+        {
+          "minute": 2,
+          "response_time": 0.000492095947265625,
+          "memory_usage": 93.64453125,
+          "messages_per_minute": 593.1397698351469
+        },
+        {
+          "minute": 3,
+          "response_time": 0.0005261898040771484,
+          "memory_usage": 93.64453125,
+          "messages_per_minute": 592.709735220799
+        },
+        {
+          "minute": 4,
+          "response_time": 0.0006256103515625,
+          "memory_usage": 93.64453125,
+          "messages_per_minute": 592.782587939598
+        }
+      ],
+      "memory_leaks": false
+    },
+    "resource_exhaustion": {
+      "agent_limit_test": {
+        "max_agents_created": 1000,
+        "limit_reached": true
+      },
+      "message_queue_test": {
+        "messages_queued": 10000,
+        "queue_full": false
+      },
+      "file_handle_test": {}
+    }
+  },
+  "stability_assessment": {
+    "stability_rating": "STABLE",
+    "performance_degradation": "MINIMAL",
+    "memory_management": "GOOD",
+    "error_handling": "ROBUST",
+    "scalability": "GOOD"
+  },
+  "recommendations": [],
+  "system_limits": {
+    "max_throughput": 476.48653801566246,
+    "max_concurrent_threads": 50,
+    "memory_ceiling": 93.64453125,
+    "agent_limit": 1000
+  }
+}

@@ -4,7 +4,7 @@ Handles specific employee communication in the chat.
 """
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 from .base_communication_agent import BaseCommunicationAgent
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class CommunicationAgent(BaseCommunicationAgent):
     """Communication agent for a specific employee"""
     
-    def __init__(self, employee_name: str, role: str, expertise: list = None):
+    def __init__(self, employee_name: str, role: str, expertise: list = None, task_tracker = None):
         super().__init__(employee_name, role, expertise)
         self.message_parser = MessageParser()
         
@@ -26,6 +26,9 @@ class CommunicationAgent(BaseCommunicationAgent):
         self.worker_status = "idle"  # idle, working, stuck, completed
         self.current_task = None
         self.task_progress = ""
+        
+        # Task tracking
+        self.task_tracker = task_tracker
         
         # Initialize memory manager for short-term memory
         try:
@@ -41,7 +44,8 @@ class CommunicationAgent(BaseCommunicationAgent):
                 employee_name=employee_name,
                 role=role,
                 expertise=expertise or [],
-                memory_manager=self.memory_manager
+                memory_manager=self.memory_manager,
+                task_tracker=self.task_tracker
             )
             logger.info(f"ReAct agent initialized for {employee_name}")
         except Exception as e:
@@ -105,95 +109,170 @@ class CommunicationAgent(BaseCommunicationAgent):
     def _handle_task_assignment(self, message: ParsedMessage) -> str:
         """Handle a task being assigned to this agent"""
         
-        # Extract task description
-        task_description = self.message_parser.extract_task_description(
-            message.text, self.employee_name
-        )
+        # Check if agent is already working on something
+        if self.worker_status == "working" and self.current_task:
+            # User is asking for something while we're already working
+            # Use status mode to explain what's currently happening
+            return self._handle_status_inquiry(message)
         
-        # Ensure we have a meaningful task description
-        if not task_description or not task_description.strip():
-            task_description = message.text[:100] + "..." if len(message.text) > 100 else message.text
+        # ALWAYS use ReAct agent for task assignment responses (FORWARD mode)
+        # The ReAct agent should handle ALL reasoning and response generation
         
-        # Notify worker agent if callback is set
-        assignment_successful = False
-        if self.on_task_assigned:
+        # Create context for the conversation with recent message history
+        context = {
+            "sender": message.sender,
+            "timestamp": message.timestamp.isoformat() if message.timestamp else "unknown",
+            "chat_type": "task_assignment",
+            "recent_messages": self._get_recent_message_context()
+        }
+        
+        # Let the ReAct agent handle the entire task assignment process in FORWARD mode
+        if self.react_agent:
             try:
-                # Try to assign task to worker
-                assignment_successful = self.on_task_assigned(task_description)
-            except Exception as e:
-                logger.error(f"Error notifying worker agent: {e}")
-                assignment_successful = False
-        
-        # Only update state if assignment was successful
-        if assignment_successful:
-            # Update state
-            self.current_task = task_description
-            self.worker_status = "working"
-            self.active_tasks.add(task_description)
-            
-            # Record response and return acknowledgment
-            self._record_response()
-            response = self.format_acknowledgment(task_description)
-            logger.debug(f"Formatted acknowledgment for {self.employee_name}: {response}")
-            return response
-        else:
-            # Assignment failed - use ReAct agent for a more intelligent response
-            logger.info(f"Task assignment failed for {self.employee_name}, using ReAct agent")
-            
-            # Create context for the conversation
-            context = {
-                "sender": message.sender,
-                "timestamp": message.timestamp.isoformat() if message.timestamp else "unknown",
-                "chat_type": "task_assignment_failed"
-            }
-            
-            # Try to get intelligent response from ReAct agent
-            if self.react_agent:
-                try:
-                    response = self.react_agent.handle_message(
-                        f"Task assignment failed for: {task_description}. Respond appropriately.", 
-                        context
+                response = self.react_agent.handle_message(message.text, context, mode="forward")
+                if response and response.strip():
+                    self._record_response()
+                    
+                    # Try to extract and assign the task to worker if callback is set
+                    task_description = self.message_parser.extract_task_description(
+                        message.text, self.employee_name
                     )
-                    if response and response.strip():
-                        self._record_response()
-                        return response
-                except Exception as e:
-                    logger.warning(f"ReAct agent failed for {self.employee_name}: {e}")
-            
-            # Fallback response
-            self._record_response()
-            return "I'm currently working on another task. Please give me a moment to finish that before assigning me new work."
+
+                    # If we couldn't extract from the original user message, try to parse it from the ReAct agent's response
+                    if not task_description:
+                        import re
+                        match = re.search(r"Started coding task:\s*(.*)", response)
+                        if match:
+                            task_description = match.group(1).strip()
+
+                    if self.on_task_assigned and task_description:
+                        try:
+                            assignment_successful = self.on_task_assigned(task_description)
+                            if assignment_successful:
+                                self.current_task = task_description
+                                self.worker_status = "working"
+                                self.active_tasks.add(task_description)
+                        except Exception as e:
+                            logger.error(f"Error notifying worker agent: {e}")
+                    
+                    return response
+                else:
+                    logger.warning(f"ReAct agent returned empty response for {self.employee_name}")
+            except Exception as e:
+                logger.warning(f"ReAct agent failed for {self.employee_name}: {e}")
+        
+        # Only fallback if ReAct agent completely fails
+        self._record_response()
+        return "I'm having trouble processing that request right now. Could you please try again?"
+    
+    def _handle_status_inquiry(self, message: ParsedMessage) -> str:
+        """Handle when user asks about status while agent is working"""
+        
+        # Create context for status inquiry
+        context = {
+            "sender": message.sender,
+            "timestamp": message.timestamp.isoformat() if message.timestamp else "unknown",
+            "chat_type": "status_inquiry",
+            "current_task": self.current_task,
+            "worker_status": self.worker_status,
+            "recent_messages": self._get_recent_message_context()
+        }
+        
+        # Use ReAct agent in STATUS mode to explain current work
+        if self.react_agent:
+            try:
+                response = self.react_agent.explain_current_status(self.employee_name)
+                if response and response.strip():
+                    self._record_response()
+                    return response
+                else:
+                    logger.warning(f"ReAct agent returned empty status response for {self.employee_name}")
+            except Exception as e:
+                logger.warning(f"ReAct agent status check failed for {self.employee_name}: {e}")
+        
+        # Fallback status response
+        self._record_response()
+        return f"I'm currently working on: {self.current_task}. Let me finish this task first."
+    
+    def handle_task_completion(self, task_output: str, task_description: str | None = None) -> str:
+        """Handle when a task completes and analyze the results (BACKWARD mode)"""
+        
+        # Use ReAct agent in BACKWARD mode to analyze task results
+        if self.react_agent:
+            try:
+                # Update status
+                self.worker_status = "completed"
+                self.current_task = None
+                
+                # Analyze the task output and provide summary
+                response = self.react_agent.analyze_task_results(task_output, task_description)
+                if response and response.strip():
+
+                    self._record_response()
+                    return response
+                else:
+                    logger.warning(f"ReAct agent returned empty analysis for {self.employee_name}")
+            except Exception as e:
+                logger.warning(f"ReAct agent analysis failed for {self.employee_name}: {e}")
+        
+        # Fallback response if analysis failed or produced nothing meaningful
+        self._record_response()
+        return f"Task completed. Here's what happened:\n\n{task_output[:500]}..."
     
     def _handle_direct_help_request(self, message: ParsedMessage) -> str:
         """Handle a help request directed specifically at this agent"""
         
-        # Analyze what kind of help is needed
-        help_topic = self._analyze_help_topic(message.text)
+        # ALWAYS use ReAct agent for help requests
+        # The ReAct agent should handle ALL reasoning and response generation
         
-        if help_topic and help_topic in self.expertise:
-            suggestion = self._generate_help_suggestion(help_topic, message.text)
-            if suggestion:
-                self._record_response()
-                return self.format_help_offer(suggestion)
+        # Create context for the conversation with recent message history
+        context = {
+            "sender": message.sender,
+            "timestamp": message.timestamp.isoformat() if message.timestamp else "unknown",
+            "chat_type": "help_request",
+            "recent_messages": self._get_recent_message_context()
+        }
         
-        # Provide a general helpful response
+        # Let the ReAct agent handle the help request
+        if self.react_agent:
+            try:
+                response = self.react_agent.handle_message(message.text, context)
+                if response and response.strip():
+                    self._record_response()
+                    return response
+                else:
+                    logger.warning(f"ReAct agent returned empty response for {self.employee_name}")
+            except Exception as e:
+                logger.warning(f"ReAct agent failed for {self.employee_name}: {e}")
+        
+        # Only fallback if ReAct agent completely fails
         self._record_response()
-        return "I'm here to help! Could you please provide more details about what specific issue you're facing? That way I can give you more targeted assistance."
+        return "I'm having trouble processing that request right now. Could you please try again?"
         
     def _handle_general_mention(self, message: ParsedMessage) -> str:
         """Handle a general mention (not task assignment or help request)"""
-        # Use ReAct agent for intelligent conversation if available
+        
+        # Check if this is a status inquiry while working
+        if self.worker_status == "working" and self.current_task:
+            text_lower = message.text.lower()
+            if any(keyword in text_lower for keyword in ['what', 'how', 'status', 'progress', 'doing', 'working']):
+                return self._handle_status_inquiry(message)
+        
+        # ALWAYS use ReAct agent for ALL responses
+        # The ReAct agent should handle ALL reasoning and response generation
+        
+        # Create context for the conversation with recent message history
+        context = {
+            "sender": message.sender,
+            "timestamp": message.timestamp.isoformat() if message.timestamp else "unknown",
+            "chat_type": "general_mention",
+            "recent_messages": self._get_recent_message_context()
+        }
+        
+        # Get intelligent response from ReAct agent in FORWARD mode
         if self.react_agent:
             try:
-                # Create context for the conversation
-                context = {
-                    "sender": message.sender,
-                    "timestamp": message.timestamp.isoformat() if message.timestamp else "unknown",
-                    "chat_type": "general_mention"
-                }
-                
-                # Get intelligent response from ReAct agent
-                response = self.react_agent.handle_message(message.text, context)
+                response = self.react_agent.handle_message(message.text, context, mode="forward")
                 
                 # Ensure we have a response
                 if response and response.strip():
@@ -203,66 +282,10 @@ class CommunicationAgent(BaseCommunicationAgent):
                     logger.warning(f"ReAct agent returned empty response for {self.employee_name}")
             except Exception as e:
                 logger.warning(f"ReAct agent failed for {self.employee_name}: {e}")
-                # Fall back to simple responses
-                pass
         
-        # Fallback to simple responses if ReAct agent fails or returns empty response
-        text_lower = message.text.lower()
-        
-        # Check for common conversational patterns
-        if "how are you" in text_lower or "how are u" in text_lower:
-            responses = [
-                "I'm doing great! Just finished reviewing some code. How are you doing today?",
-                "I'm here and ready to help! Had a productive morning working on tasks. How can I assist you?",
-                "Feeling energized and ready to tackle challenges! What's on your mind?"
-            ]
-        elif "hello" in text_lower or "hi " in text_lower or "hey" in text_lower:
-            responses = [
-                "Hello there! What can I help you with today?",
-                "Hi! I'm excited to work on something. Got any interesting tasks for me?",
-                "Hey! I'm here and ready to be productive. What's up?"
-            ]
-        elif "good morning" in text_lower:
-            responses = [
-                "Good morning! I'm ready to start the day with some coding. What's first on the agenda?",
-                "Morning! I've been reviewing our project status and I'm pumped to get started!"
-            ]
-        elif "good evening" in text_lower:
-            responses = [
-                "Good evening! How was your day? I've been making good progress on my tasks.",
-                "Evening! I'm still here and ready to help if you need anything."
-            ]
-        elif "bye" in text_lower or "goodbye" in text_lower:
-            responses = [
-                "See you later! Let me know if you need anything before you go.",
-                "Goodbye! I'll keep working on my current tasks. Catch you tomorrow!",
-                "Bye! Feel free to ping me if you think of anything else."
-            ]
-        else:
-            # Handle task-like requests that might be disguised as casual mentions
-            if any(keyword in text_lower for keyword in ['check', 'look', 'review', 'coverage', 'report']):
-                responses = [
-                    "I'd be happy to help with that. Could you please provide more details about what specifically you'd like me to check?",
-                    "Sure, I can look into that for you. What exactly would you like me to examine or report on?",
-                    "I'm on it! Please give me a few more details about what you need me to check or review.",
-                    "Absolutely! Just to clarify, what specific aspects would you like me to focus on when checking this?"
-                ]
-            else:
-                # General purpose responses
-                responses = [
-                    "Hey! I'm here and ready to help. What can I do for you?",
-                    "Hi there! I'm always excited to collaborate. What's on your mind?",
-                    "Hello! I've been working on some interesting stuff. How can I assist you?",
-                    "I'm all ears! What do you need help with?",
-                    "Right here! I'm ready to jump on whatever you need. What's up?",
-                    "Hey! I was just thinking about how to improve our workflow. What can I help with?",
-                    "Hi! I'm here and eager to contribute. What's the plan?",
-                    "Good to hear from you! What can I tackle for you today?"
-                ]
-        
-        import random
+        # Only fallback if ReAct agent completely fails
         self._record_response()
-        return random.choice(responses)
+        return "I'm having trouble processing that request right now. Could you please try again?"
 
     def _offer_help(self, message: ParsedMessage) -> Optional[str]:
         """Offer help on a message"""
@@ -326,6 +349,17 @@ class CommunicationAgent(BaseCommunicationAgent):
             return response
         
         return None
+
+    def _get_recent_message_context(self) -> List[Dict]:
+        """Get recent message context for ReAct agent"""
+        context = []
+        for msg in self.recent_messages[-5:]:  # Last 5 messages
+            context.append({
+                "sender": msg.sender,
+                "text": msg.text,
+                "timestamp": msg.timestamp.isoformat() if msg.timestamp else "unknown"
+            })
+        return context
 
     def _analyze_help_topic(self, text: str) -> Optional[str]:
         """Analyze what topic help is needed for"""
@@ -464,7 +498,7 @@ class CommunicationAgent(BaseCommunicationAgent):
         help_message = self.format_help_request(task, progress, issue)
         return help_message
 
-    def notify_worker_completed(self, task: str):
+    def notify_worker_completed(self, task: str, task_output: str = None):
         """Called when worker agent completes a task"""
         self.worker_status = "completed"
         self.current_task = None
@@ -472,8 +506,18 @@ class CommunicationAgent(BaseCommunicationAgent):
         if task in self.active_tasks:
             self.active_tasks.remove(task)
         
+        # Analyze task output (if provided) and generate summary
+        summary_msg = ""
+        if task_output and self.react_agent:
+            try:
+                summary_msg = self.handle_task_completion(task_output, task)
+            except Exception as e:
+                logger.warning(f"Analysis failed for {self.employee_name}: {e}")
+        
         # Announce completion
         completion_message = self.format_completion(task)
+        if summary_msg:
+            completion_message += "\n\n" + summary_msg
         return completion_message
 
     def provide_help_to_worker(self, help_messages: list) -> str:

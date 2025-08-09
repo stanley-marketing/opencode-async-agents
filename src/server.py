@@ -11,6 +11,7 @@ import threading
 import time
 import json
 from pathlib import Path
+from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import logging
@@ -38,6 +39,29 @@ except ImportError:
     AgentRecoveryManager = None
     MonitoringDashboard = None
 
+
+def serialize_for_json(obj):
+    """Convert objects to JSON-serializable format"""
+    from enum import Enum
+    from datetime import datetime
+    
+    if isinstance(obj, Enum):
+        return obj.value
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    elif hasattr(obj, '__dict__'):
+        result = {}
+        for key, value in obj.__dict__.items():
+            result[key] = serialize_for_json(value)
+        return result
+    elif isinstance(obj, list):
+        return [serialize_for_json(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {k: serialize_for_json(v) for k, v in obj.items()}
+    else:
+        return obj
+
+
 class OpencodeSlackServer:
     """Standalone server for opencode-slack system"""
     
@@ -54,7 +78,7 @@ class OpencodeSlackServer:
         setup_logging(cli_mode=False)
         self.logger = logging.getLogger(__name__)
         
-        # Initialize core components
+        # Initialize core components in proper order
         self.file_manager = FileOwnershipManager(db_path)
         self.task_tracker = TaskProgressTracker(sessions_dir)
         self.session_manager = OpencodeSessionManager(self.file_manager, sessions_dir, quiet_mode=True)
@@ -62,13 +86,18 @@ class OpencodeSlackServer:
         # Initialize chat system
         self.telegram_manager = TelegramManager()
         self.agent_manager = AgentManager(self.file_manager, self.telegram_manager)
+        
+        # CRITICAL FIX: Set up monitoring system BEFORE creating bridge
+        # This ensures agents have proper task tracker references
+        self.agent_manager.setup_monitoring_system(self.task_tracker, self.session_manager)
+        
+        # Ensure all existing employees have agents
+        self.agent_manager.sync_agents_with_employees()
+        
         self.agent_bridge = AgentBridge(self.session_manager, self.agent_manager)
         
-        # Initialize monitoring system (if available)
-        self.health_monitor = None
-        self.recovery_manager = None
-        self.monitoring_dashboard = None
-        self._setup_monitoring_system()
+        # Set up advanced monitoring system after all components are initialized
+        self._setup_advanced_monitoring_system()
         
         # Initialize Flask app
         self.app = Flask(__name__)
@@ -81,20 +110,64 @@ class OpencodeSlackServer:
         
         self.logger.info(f"OpenCode-Slack server initialized on {host}:{port}")
     
-    def _setup_monitoring_system(self):
-        """Set up the agent monitoring system"""
+    def _setup_advanced_monitoring_system(self):
+        """Set up the production-grade monitoring system"""
         if not MONITORING_AVAILABLE:
-            self.logger.info("Monitoring system not available")
+            self.logger.info("Advanced monitoring system not available")
             return
         
         try:
-            # Initialize health monitor
+            # Import production monitoring components
+            from src.monitoring.production_monitoring_system import ProductionMonitoringSystem, MonitoringConfiguration
+            
+            # Configure production monitoring
+            monitoring_config = MonitoringConfiguration(
+                metrics_collection_interval=int(os.environ.get('MONITORING_METRICS_INTERVAL', 30)),
+                health_check_interval=int(os.environ.get('MONITORING_HEALTH_INTERVAL', 30)),
+                alert_processing_interval=int(os.environ.get('MONITORING_ALERT_INTERVAL', 15)),
+                dashboard_port=int(os.environ.get('MONITORING_DASHBOARD_PORT', 8083)),
+                dashboard_host=os.environ.get('MONITORING_DASHBOARD_HOST', '0.0.0.0'),
+                auto_recovery_enabled=os.environ.get('MONITORING_AUTO_RECOVERY', 'true').lower() == 'true',
+                data_retention_days=int(os.environ.get('MONITORING_RETENTION_DAYS', 30)),
+                enable_dashboard=os.environ.get('MONITORING_ENABLE_DASHBOARD', 'true').lower() == 'true',
+                enable_mobile_dashboard=os.environ.get('MONITORING_ENABLE_MOBILE', 'true').lower() == 'true',
+                service_name="opencode-slack"
+            )
+            
+            # Initialize production monitoring system
+            self.production_monitoring = ProductionMonitoringSystem(
+                agent_manager=self.agent_manager,
+                task_tracker=self.task_tracker,
+                session_manager=self.session_manager,
+                config=monitoring_config
+            )
+            
+            # Keep backward compatibility with existing monitoring
+            self.health_monitor = self.production_monitoring.health_checker
+            self.recovery_manager = self.production_monitoring.health_checker
+            self.monitoring_dashboard = self.production_monitoring.dashboard
+            
+            self.logger.info("Production monitoring system initialized")
+            print("🔍 Production monitoring system initialized")
+            
+        except ImportError as e:
+            self.logger.warning(f"Production monitoring not available, falling back to basic monitoring: {e}")
+            self._setup_basic_monitoring_fallback()
+        except Exception as e:
+            self.logger.error(f"Error setting up production monitoring system: {e}")
+            print(f"⚠️  Failed to initialize production monitoring system: {e}")
+            self._setup_basic_monitoring_fallback()
+    
+    def _setup_basic_monitoring_fallback(self):
+        """Set up basic monitoring system as fallback"""
+        try:
+            # Initialize basic health monitor
             self.health_monitor = AgentHealthMonitor(self.agent_manager, self.task_tracker)
             
-            # Initialize recovery manager
+            # Initialize basic recovery manager
             self.recovery_manager = AgentRecoveryManager(self.agent_manager, self.session_manager)
             
-            # Initialize monitoring dashboard
+            # Initialize basic monitoring dashboard
             self.monitoring_dashboard = MonitoringDashboard(self.health_monitor, self.recovery_manager)
             
             # Set up anomaly callback
@@ -105,12 +178,15 @@ class OpencodeSlackServer:
             # Start monitoring
             self.health_monitor.start_monitoring(anomaly_callback)
             
-            self.logger.info("Monitoring system initialized and started")
-            print("🔍 Agent monitoring system initialized")
+            self.logger.info("Basic monitoring system initialized and started")
+            print("🔍 Basic agent monitoring system initialized")
             
         except Exception as e:
-            self.logger.error(f"Error setting up monitoring system: {e}")
-            print(f"⚠️  Failed to initialize monitoring system: {e}")
+            self.logger.error(f"Error setting up basic monitoring system: {e}")
+            print(f"⚠️  Failed to initialize basic monitoring system: {e}")
+            self.health_monitor = None
+            self.recovery_manager = None
+            self.monitoring_dashboard = None
     
     def _load_environment(self):
         """Load environment variables"""
@@ -152,17 +228,25 @@ class OpencodeSlackServer:
             data = request.get_json()
             name = data.get('name')
             role = data.get('role')
+            smartness = data.get('smartness', 'normal')
             
             if not name or not role:
                 return jsonify({'error': 'Name and role are required'}), 400
             
-            success = self.file_manager.hire_employee(name, role)
+            success = self.file_manager.hire_employee(name, role, smartness)
             if success:
-                # Create communication agent
+                # CRITICAL FIX: Create communication agent immediately after hiring
                 expertise = self.agent_manager._get_expertise_for_role(role)
-                self.agent_manager.create_agent(name, role, expertise)
+                agent = self.agent_manager.create_agent(name, role, expertise)
                 
-                return jsonify({'message': f'Successfully hired {name} as {role}'})
+                # Ensure agent has proper task tracker reference
+                if hasattr(self.agent_manager, 'task_tracker') and self.agent_manager.task_tracker:
+                    agent.task_tracker = self.agent_manager.task_tracker
+                
+                # Sync agents to ensure consistency
+                self.agent_manager.sync_agents_with_employees()
+                
+                return jsonify({'message': f'Successfully hired {name} as {role} with {smartness} smartness'})
             else:
                 return jsonify({'error': f'Failed to hire {name}. Employee may already exist.'}), 400
         
@@ -431,43 +515,268 @@ class OpencodeSlackServer:
         @self.app.route('/monitoring/health', methods=['GET'])
         def get_monitoring_health():
             """Get agent health monitoring status"""
-            if not self.health_monitor:
-                return jsonify({'error': 'Monitoring system not available'}), 400
-            
-            health_summary = self.health_monitor.get_agent_health_summary()
-            return jsonify({'health': health_summary})
+            if hasattr(self, 'production_monitoring') and self.production_monitoring:
+                # Use production monitoring system
+                try:
+                    system_status = self.production_monitoring.get_system_status()
+                    health_data = system_status.get('health', {})
+                    
+                    # Ensure all data is JSON serializable
+                    if 'error' in system_status:
+                        return jsonify({'error': system_status['error'], 'status': 'error'}), 500
+                    
+                    return jsonify({
+                        'status': 'success',
+                        'health': health_data,
+                        'timestamp': datetime.now().isoformat()
+                    })
+                except Exception as e:
+                    self.logger.error(f"Error getting production health status: {e}")
+                    return jsonify({
+                        'error': 'Production monitoring error',
+                        'details': str(e),
+                        'status': 'error'
+                    }), 500
+            elif self.health_monitor:
+                # Fallback to basic monitoring
+                try:
+                    health_summary = self.health_monitor.get_agent_health_summary()
+                    return jsonify({
+                        'status': 'success',
+                        'health': health_summary,
+                        'timestamp': datetime.now().isoformat()
+                    })
+                except Exception as e:
+                    self.logger.error(f"Error getting basic health status: {e}")
+                    return jsonify({
+                        'error': 'Basic monitoring error',
+                        'details': str(e),
+                        'status': 'error'
+                    }), 500
+            else:
+                return jsonify({
+                    'error': 'Monitoring system not available',
+                    'status': 'unavailable'
+                }), 503
         
         @self.app.route('/monitoring/recovery', methods=['GET'])
         def get_monitoring_recovery():
             """Get agent recovery status"""
-            if not self.recovery_manager:
-                return jsonify({'error': 'Recovery system not available'}), 400
-            
-            recovery_summary = self.recovery_manager.get_recovery_summary()
-            return jsonify({'recovery': recovery_summary})
+            if hasattr(self, 'production_monitoring') and self.production_monitoring:
+                # Use production monitoring system
+                try:
+                    recovery_history = self.production_monitoring.health_checker.get_recovery_history(24)
+                    recovery_summary = self.production_monitoring.health_checker.get_overall_health()
+                    
+                    return jsonify({
+                        'status': 'success',
+                        'recovery_history': recovery_history,
+                        'recovery_summary': recovery_summary,
+                        'timestamp': datetime.now().isoformat()
+                    })
+                except Exception as e:
+                    self.logger.error(f"Error getting production recovery status: {e}")
+                    return jsonify({
+                        'error': 'Production monitoring error',
+                        'details': str(e),
+                        'status': 'error'
+                    }), 500
+            elif self.recovery_manager:
+                # Fallback to basic monitoring
+                try:
+                    recovery_summary = self.recovery_manager.get_recovery_summary()
+                    return jsonify({
+                        'status': 'success',
+                        'recovery': recovery_summary,
+                        'timestamp': datetime.now().isoformat()
+                    })
+                except Exception as e:
+                    self.logger.error(f"Error getting basic recovery status: {e}")
+                    return jsonify({
+                        'error': 'Basic recovery error',
+                        'details': str(e),
+                        'status': 'error'
+                    }), 500
+            else:
+                return jsonify({
+                    'error': 'Recovery system not available',
+                    'status': 'unavailable'
+                }), 503
         
         @self.app.route('/monitoring/agents/<agent_name>', methods=['GET'])
         def get_agent_monitoring_details(agent_name):
             """Get detailed monitoring information for a specific agent"""
-            if not self.health_monitor or not self.recovery_manager:
+            if hasattr(self, 'production_monitoring') and self.production_monitoring:
+                # Use production monitoring system
+                try:
+                    system_status = self.production_monitoring.get_system_status()
+                    health_data = system_status.get('health', {})
+                    agent_details = health_data.get('components', {}).get('agent_manager', {})
+                    
+                    # Get observability data for the agent
+                    observability_data = self.production_monitoring.get_observability_data(hours=24)
+                    
+                    return jsonify({
+                        'agent': agent_name,
+                        'health': agent_details,
+                        'observability': observability_data,
+                        'metrics': system_status.get('metrics', {})
+                    })
+                except Exception as e:
+                    self.logger.error(f"Error getting production agent details: {e}")
+                    return jsonify({'error': 'Production monitoring error'}), 500
+            elif self.health_monitor and self.recovery_manager:
+                # Fallback to basic monitoring
+                health_summary = self.health_monitor.get_agent_health_summary()
+                agent_details = health_summary.get('agent_details', {}).get(agent_name, {})
+                
+                recovery_history = self.recovery_manager.get_recovery_history(agent_name)
+                
+                return jsonify({
+                    'agent': agent_name,
+                    'health': agent_details,
+                    'recovery_history': recovery_history.get(agent_name, [])
+                })
+            else:
                 return jsonify({'error': 'Monitoring system not available'}), 400
-            
-            # Get agent health details
-            health_summary = self.health_monitor.get_agent_health_summary()
-            agent_details = health_summary.get('agent_details', {}).get(agent_name, {})
-            
-            # Get recovery history
-            recovery_history = self.recovery_manager.get_recovery_history(agent_name)
-            
-            return jsonify({
-                'agent': agent_name,
-                'health': agent_details,
-                'recovery_history': recovery_history.get(agent_name, [])
-            })
+        
+        # Production monitoring endpoints
+        @self.app.route('/monitoring/production/status', methods=['GET'])
+        def get_production_monitoring_status():
+            """Get comprehensive production monitoring status"""
+            if hasattr(self, 'production_monitoring') and self.production_monitoring:
+                try:
+                    system_status = self.production_monitoring.get_system_status()
+                    
+                    # Ensure all data is JSON serializable
+                    if 'error' in system_status:
+                        return jsonify({
+                            'error': system_status['error'],
+                            'status': 'error',
+                            'timestamp': datetime.now().isoformat()
+                        }), 500
+                    
+                    # Add success status and timestamp
+                    system_status['status'] = 'success'
+                    system_status['timestamp'] = datetime.now().isoformat()
+                    
+                    return jsonify(system_status)
+                except Exception as e:
+                    self.logger.error(f"Error getting production monitoring status: {e}")
+                    return jsonify({
+                        'error': 'Production monitoring error',
+                        'details': str(e),
+                        'status': 'error',
+                        'timestamp': datetime.now().isoformat()
+                    }), 500
+            else:
+                return jsonify({
+                    'error': 'Production monitoring not available',
+                    'status': 'unavailable',
+                    'timestamp': datetime.now().isoformat()
+                }), 503
+        
+        @self.app.route('/monitoring/production/performance', methods=['GET'])
+        def get_production_performance():
+            """Get production performance summary"""
+            if hasattr(self, 'production_monitoring') and self.production_monitoring:
+                try:
+                    hours = int(request.args.get('hours', 24))
+                    return jsonify(self.production_monitoring.get_performance_summary(hours))
+                except Exception as e:
+                    self.logger.error(f"Error getting production performance: {e}")
+                    return jsonify({'error': str(e)}), 500
+            else:
+                return jsonify({'error': 'Production monitoring not available'}), 404
+        
+        @self.app.route('/monitoring/production/alerts', methods=['GET'])
+        def get_production_alerts():
+            """Get production alerts"""
+            if hasattr(self, 'production_monitoring') and self.production_monitoring:
+                try:
+                    active_alerts = self.production_monitoring.alerting_system.get_active_alerts()
+                    alert_history = self.production_monitoring.alerting_system.get_alert_history(24)
+                    alert_stats = self.production_monitoring.alerting_system.get_alerting_statistics()
+                    
+                    return jsonify(serialize_for_json({
+                        'active_alerts': active_alerts,
+                        'alert_history': alert_history,
+                        'statistics': alert_stats
+                    }))
+                except Exception as e:
+                    self.logger.error(f"Error getting production alerts: {e}")
+                    return jsonify({'error': str(e)}), 500
+            else:
+                return jsonify({'error': 'Production monitoring not available'}), 404
+        
+        @self.app.route('/monitoring/production/alerts/<alert_id>/acknowledge', methods=['POST'])
+        def acknowledge_production_alert(alert_id):
+            """Acknowledge a production alert"""
+            if hasattr(self, 'production_monitoring') and self.production_monitoring:
+                try:
+                    data = request.get_json() or {}
+                    acknowledged_by = data.get('acknowledged_by', 'unknown')
+                    
+                    success = self.production_monitoring.acknowledge_alert(alert_id, acknowledged_by)
+                    
+                    if success:
+                        return jsonify({'message': f'Alert {alert_id} acknowledged by {acknowledged_by}'})
+                    else:
+                        return jsonify({'error': 'Failed to acknowledge alert'}), 400
+                except Exception as e:
+                    self.logger.error(f"Error acknowledging alert: {e}")
+                    return jsonify({'error': str(e)}), 500
+            else:
+                return jsonify({'error': 'Production monitoring not available'}), 404
+        
+        @self.app.route('/monitoring/production/recovery/<action_name>', methods=['POST'])
+        def trigger_production_recovery(action_name):
+            """Trigger a production recovery action"""
+            if hasattr(self, 'production_monitoring') and self.production_monitoring:
+                try:
+                    success = self.production_monitoring.trigger_recovery_action(action_name)
+                    
+                    if success:
+                        return jsonify({'message': f'Recovery action {action_name} triggered successfully'})
+                    else:
+                        return jsonify({'error': f'Failed to trigger recovery action {action_name}'}), 400
+                except Exception as e:
+                    self.logger.error(f"Error triggering recovery action: {e}")
+                    return jsonify({'error': str(e)}), 500
+            else:
+                return jsonify({'error': 'Production monitoring not available'}), 404
+        
+        @self.app.route('/monitoring/production/export', methods=['GET'])
+        def export_production_monitoring_data():
+            """Export production monitoring data"""
+            if hasattr(self, 'production_monitoring') and self.production_monitoring:
+                try:
+                    format_type = request.args.get('format', 'json')
+                    hours = int(request.args.get('hours', 24))
+                    
+                    exported_data = self.production_monitoring.export_monitoring_data(format_type, hours)
+                    
+                    if format_type.lower() == 'json':
+                        return jsonify({'data': exported_data})
+                    else:
+                        return exported_data, 200, {'Content-Type': 'text/plain'}
+                except Exception as e:
+                    self.logger.error(f"Error exporting monitoring data: {e}")
+                    return jsonify({'error': str(e)}), 500
+            else:
+                return jsonify({'error': 'Production monitoring not available'}), 404
     
     def start(self):
         """Start the server"""
         self.running = True
+        
+        # Start production monitoring system if available
+        if hasattr(self, 'production_monitoring') and self.production_monitoring:
+            try:
+                self.production_monitoring.start()
+                self.logger.info("Production monitoring system started")
+            except Exception as e:
+                self.logger.error(f"Failed to start production monitoring: {e}")
         
         # Auto-start chat system if configured
         self._auto_start_chat_if_configured()
@@ -480,6 +789,20 @@ class OpencodeSlackServer:
         print(f"🚀 OpenCode-Slack server starting on http://{self.host}:{self.port}")
         print(f"👥 {len(self.agent_manager.agents)} communication agents ready")
         print("📊 Health check: GET /health")
+        
+        # Show monitoring information
+        if hasattr(self, 'production_monitoring') and self.production_monitoring:
+            if self.production_monitoring.dashboard:
+                dashboard_port = self.production_monitoring.config.dashboard_port
+                dashboard_host = self.production_monitoring.config.dashboard_host
+                print(f"🎛️  Production Dashboard: http://{dashboard_host}:{dashboard_port}")
+                print(f"📱 Mobile Dashboard: http://{dashboard_host}:{dashboard_port}/mobile")
+            print("📈 Production Monitoring: GET /monitoring/production/status")
+            print("🚨 Alerts: GET /monitoring/production/alerts")
+            print("⚡ Performance: GET /monitoring/production/performance")
+        else:
+            print("🔍 Basic Monitoring: GET /monitoring/health")
+        
         print("🔗 API documentation available at /docs (if implemented)")
         print("Press Ctrl+C to stop")
         
@@ -532,17 +855,46 @@ class OpencodeSlackServer:
     
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals"""
-        self.logger.info(f"Received signal {signum}, shutting down immediately...")
-        import os
-        os._exit(0)
+        self.logger.info(f"Received signal {signum}, shutting down gracefully...")
+        self.stop()
     
     def stop(self):
         """Stop the server immediately"""
         self.logger.info("Shutting down OpenCode-Slack server immediately...")
         print("\n🛑 Shutting down server immediately...")
         
+        # Stop production monitoring system if available
+        if hasattr(self, 'production_monitoring') and self.production_monitoring:
+            try:
+                print("🔍 Stopping production monitoring system...")
+                self.production_monitoring.stop()
+                self.logger.info("Production monitoring system stopped")
+            except Exception as e:
+                self.logger.error(f"Error stopping production monitoring: {e}")
+                print(f"⚠️  Error stopping production monitoring: {e}")
+        
+        # Stop basic monitoring if available
+        if hasattr(self, 'health_monitor') and self.health_monitor:
+            try:
+                self.health_monitor.stop_monitoring()
+            except Exception as e:
+                self.logger.error(f"Error stopping health monitor: {e}")
+        
         # Stop chat system immediately
         self.chat_enabled = False
+        
+        # Clean up all active sessions and release locks
+        print("🧹 Cleaning up active sessions and releasing file locks...")
+        try:
+            self.session_manager.cleanup_all_sessions()
+            # Release all remaining locks
+            employees = self.file_manager.list_employees()
+            for employee in employees:
+                released = self.file_manager.release_files(employee['name'])
+                if released:
+                    print(f"   🔓 Released locks for {employee['name']}: {', '.join(released)}")
+        except Exception as e:
+            print(f"⚠️  Error during cleanup: {e}")
         
         self.running = False
         print("✅ Server shutdown complete")

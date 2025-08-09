@@ -105,9 +105,12 @@ Task assigned at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                 current_section = None
             
             # Parse file status
-            elif current_section == 'file_status' and line.startswith('- '):
-                # Format: "- src/auth.py: 80% complete (JWT function in progress)"
-                if ':' in line:
+            elif current_section == 'file_status' and line and not line.startswith('##'):
+                # Handle both formats:
+                # Format 1: "- src/auth.py: 80% complete (JWT function in progress)"
+                # Format 2: "45% complete" (simple format)
+                if line.startswith('- ') and ':' in line:
+                    # Format 1: Detailed file status
                     file_part = line[2:].split(':')[0].strip()
                     status_part = line.split(':', 1)[1].strip()
                     
@@ -129,6 +132,22 @@ Task assigned at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                         progress['ready_to_release'].append(file_part)
                     elif percentage > 0:
                         progress['still_working_on'].append(file_part)
+                elif '% complete' in line and not line.startswith('-'):
+                    # Format 2: Simple overall status
+                    try:
+                        percentage = int(line.split('%')[0].strip())
+                        # Create a dummy file entry for overall progress
+                        progress['file_status']['overall_task'] = {
+                            'percentage': percentage,
+                            'status': line
+                        }
+                        # Categorize based on percentage
+                        if percentage >= 100:
+                            progress['ready_to_release'].append('overall_task')
+                        elif percentage > 0:
+                            progress['still_working_on'].append('overall_task')
+                    except:
+                        pass  # Ignore if we can't parse the percentage
             
             # Extract current work
             elif current_section == 'current_work' and line and not line.startswith('#'):
@@ -234,6 +253,23 @@ Task assigned at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             logger.info(f"No session directory found for {employee_name}")
             return True
     
+    def get_last_completed_task_output(self, employee_name: str) -> Optional[str]:
+        """Return the text content of the most recently completed task file for an employee."""
+        completed_dir = os.path.join(self.sessions_dir, employee_name, "completed_tasks")
+        if not os.path.exists(completed_dir):
+            return None
+        # Find latest file by modification time
+        files = [os.path.join(completed_dir, f) for f in os.listdir(completed_dir) if f.endswith('.md')]
+        if not files:
+            return None
+        latest_file = max(files, key=os.path.getmtime)
+        try:
+            with open(latest_file, 'r') as f:
+                return f.read()
+        except Exception as e:
+            logger.error(f"Error reading completed task file {latest_file}: {e}")
+            return None
+
     def get_all_progress(self) -> Dict[str, Dict]:
         """Get progress for all employees"""
         logger.info("Getting progress for all employees")

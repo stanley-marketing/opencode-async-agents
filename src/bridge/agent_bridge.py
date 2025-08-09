@@ -48,10 +48,25 @@ class AgentBridge:
         
         logger.info(f"Assigning task to worker {employee_name}: {task_description}")
         
+        # CRITICAL FIX: Ensure employee exists in file manager
+        employees = self.session_manager.file_manager.list_employees()
+        employee_names = [emp['name'] for emp in employees]
+        
+        if employee_name not in employee_names:
+            logger.error(f"Employee {employee_name} not found in file manager")
+            return False
+        
         # Check if employee is available
         if not self.agent_manager.is_agent_available(employee_name):
             logger.warning(f"Employee {employee_name} is not available for new tasks")
             return False
+        
+        # CRITICAL FIX: Ensure agent exists for this employee
+        if employee_name not in self.agent_manager.agents:
+            logger.warning(f"No agent found for {employee_name}, creating one")
+            employee_info = next(emp for emp in employees if emp['name'] == employee_name)
+            expertise = self.agent_manager._get_expertise_for_role(employee_info['role'])
+            self.agent_manager.create_agent(employee_name, employee_info['role'], expertise)
         
         # Start the worker session
         session_id = self.session_manager.start_employee_task(

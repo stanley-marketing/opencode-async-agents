@@ -128,20 +128,38 @@ class MessageParser:
         mention_pattern = f"@{mentioned_employee}(-bot)?"
         clean_text = re.sub(mention_pattern, '', text, flags=re.IGNORECASE).strip()
         
-        # Remove common prefixes
-        prefixes_to_remove = ['please', 'can you', 'could you', 'i need you to', 'i want you to']
-        for prefix in prefixes_to_remove:
-            if clean_text.lower().startswith(prefix):
-                clean_text = clean_text[len(prefix):].strip()
+        # Remove common prefixes (more comprehensive list)
+        prefixes_to_remove = [
+            'so,', 'so', 'please', 'can you', 'could you', 'would you', 
+            'i need you to', 'i want you to', 'i would like you to',
+            'hey,', 'hi,', 'hello,'
+        ]
+        
+        # Keep removing prefixes until no more match
+        changed = True
+        while changed:
+            changed = False
+            for prefix in prefixes_to_remove:
+                if clean_text.lower().startswith(prefix.lower()):
+                    clean_text = clean_text[len(prefix):].strip()
+                    # Remove comma or space after prefix
+                    if clean_text.startswith(','):
+                        clean_text = clean_text[1:].strip()
+                    changed = True
+                    break
         
         # Remove common suffixes
-        suffixes_to_remove = ['thanks', 'thank you', 'pls', 'plz']
+        suffixes_to_remove = ['thanks', 'thank you', 'pls', 'plz', '?']
         for suffix in suffixes_to_remove:
-            if clean_text.lower().endswith(suffix):
+            if clean_text.lower().endswith(suffix.lower()):
                 clean_text = clean_text[:-len(suffix)].strip()
         
+        # Handle follow-up phrases like "then" or "start then"
+        if clean_text.lower() in ['then', 'start then', 'go ahead', 'proceed']:
+            return f"Continue with previous request: {clean_text}"
+        
         # If we still have a generic request, try to extract the core
-        if any(word in clean_text.lower() for word in ['look at', 'check', 'review', 'examine']):
+        if any(word in clean_text.lower() for word in ['look at', 'check', 'review', 'examine', 'coverage']):
             # This is likely a request to examine something
             return clean_text
         

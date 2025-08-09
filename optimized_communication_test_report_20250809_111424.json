@@ -1,0 +1,213 @@
+{
+  "test_summary": {
+    "start_time": "2025-08-09T11:13:42.218468",
+    "end_time": "2025-08-09T11:14:24.258364",
+    "duration_seconds": 42.039896,
+    "overall_score": 0.819047619047619,
+    "overall_grade": "B"
+  },
+  "category_scores": {
+    "message_router_tests": 1.0,
+    "telegram_manager_tests": 0.8333333333333334,
+    "agent_discovery_tests": 1.0,
+    "monitoring_tests": 0.8,
+    "integration_tests": 1.0,
+    "performance_tests": 0.5,
+    "reliability_tests": 0.6
+  },
+  "performance_summary": {
+    "peak_throughput": 29433.505729784352,
+    "throughput_target_met": true,
+    "average_latency_ms": 1.129441261291504,
+    "latency_target_met": true,
+    "concurrent_throughput": 1176609.774533805,
+    "concurrent_target_met": true
+  },
+  "reliability_summary": {
+    "error_recovery": false,
+    "message_retry": true,
+    "graceful_degradation": false,
+    "system_resilience": true
+  },
+  "detailed_results": {
+    "message_router_tests": {
+      "initialization": true,
+      "message_routing": true,
+      "priority_handling": true,
+      "load_balancing": true,
+      "performance_metrics": {
+        "messages_processed": 101,
+        "messages_failed": 1,
+        "success_rate": 0.9901960784313726,
+        "average_latency_ms": 1.109241258980024,
+        "current_throughput_per_second": 20.2,
+        "peak_queue_size": 80,
+        "current_queue_size": 1,
+        "uptime_seconds": 5.712497,
+        "workers_active": 5,
+        "routes_configured": 2
+      },
+      "throughput_test": {
+        "messages_sent": 100,
+        "duration_seconds": 5.007055759429932,
+        "throughput_msg_per_sec": 19.97181673315044,
+        "target_throughput": 50
+      },
+      "error_handling": true
+    },
+    "telegram_manager_tests": {
+      "initialization": true,
+      "rate_limiting": false,
+      "message_batching": true,
+      "failover_mechanism": true,
+      "performance_metrics": {
+        "messages_sent": 0,
+        "messages_failed": 0,
+        "messages_received": 0,
+        "success_rate": 1.0,
+        "average_send_time": 0.0,
+        "rate_limit_hits": 0,
+        "batch_sends": 0,
+        "failover_activations": 0,
+        "current_rate_limit": 1.0,
+        "router_metrics": {
+          "messages_processed": 2,
+          "messages_failed": 0,
+          "success_rate": 1.0,
+          "average_latency_ms": 0.32961368560791016,
+          "current_throughput_per_second": 0,
+          "peak_queue_size": 35,
+          "current_queue_size": 29,
+          "uptime_seconds": 0.002831,
+          "workers_active": 5,
+          "routes_configured": 1
+        },
+        "channel_status": {
+          "primary_channel": "telegram",
+          "channels": {
+            "telegram": {
+              "active": true,
+              "priority": 10,
+              "health": 1.0
+            }
+          }
+        }
+      },
+      "connection_pooling": true,
+      "message_optimization": true
+    },
+    "agent_discovery_tests": {
+      "initialization": true,
+      "agent_registration": true,
+      "task_routing": true,
+      "load_balancing": true,
+      "performance_optimization": true,
+      "system_metrics": {
+        "total_agents": 5,
+        "total_tasks_routed": 165,
+        "successful_routes": 60,
+        "failed_routes": 105,
+        "routing_success_rate": 0.36363636363636365,
+        "average_routing_time_ms": 0.00403722127278646,
+        "system_utilization": 0.6,
+        "pending_tasks": 0,
+        "agent_status_distribution": {
+          "working": 3,
+          "idle": 2
+        },
+        "routing_strategy_usage": {
+          "performance_based": 30,
+          "round_robin": 10,
+          "least_loaded": 10,
+          "best_fit": 10
+        }
+      },
+      "routing_strategies": {
+        "round_robin": {
+          "success_rate": 1.0,
+          "working": true
+        },
+        "least_loaded": {
+          "success_rate": 1.0,
+          "working": true
+        },
+        "best_fit": {
+          "success_rate": 1.0,
+          "working": true
+        },
+        "performance_based": {
+          "success_rate": 1.0,
+          "working": true
+        }
+      }
+    },
+    "monitoring_tests": {
+      "initialization": true,
+      "metrics_collection": true,
+      "alert_system": false,
+      "dashboard_data": true,
+      "health_monitoring": true,
+      "performance_tracking": {
+        "events_recorded": 100,
+        "duration_seconds": 0.003126382827758789,
+        "events_per_second": 31985.8461069168
+      }
+    },
+    "integration_tests": {
+      "component_integration": true,
+      "end_to_end_flow": true,
+      "cross_component_metrics": true,
+      "system_stability": true,
+      "data_consistency": true
+    },
+    "performance_tests": {
+      "high_throughput": {
+        "messages_sent": 1000,
+        "messages_processed": 1000,
+        "duration_seconds": 0.03397488594055176,
+        "throughput_msg_per_sec": 29433.505729784352,
+        "target_throughput": 100,
+        "meets_target": true
+      },
+      "low_latency": {
+        "measurements": 50,
+        "avg_latency_ms": 1.129441261291504,
+        "p95_latency_ms": 1.1670589447021484,
+        "target_latency_ms": 50,
+        "meets_target": true
+      },
+      "concurrent_processing": {
+        "threads": 10,
+        "total_throughput": 1176609.774533805,
+        "avg_thread_throughput": 117660.9774533805,
+        "target_concurrent_throughput": 500,
+        "meets_target": true
+      },
+      "memory_efficiency": {},
+      "cpu_efficiency": {}
+    },
+    "reliability_tests": {
+      "error_recovery": false,
+      "message_retry": true,
+      "failover_mechanism": true,
+      "data_persistence": true,
+      "graceful_degradation": false,
+      "system_resilience": {
+        "health_status": "DEGRADED",
+        "active_workers": 3,
+        "queue_utilization": 100,
+        "success_rate": 0.9711538461538461,
+        "system_stable": true
+      }
+    }
+  },
+  "recommendations": [
+    "Implement better error recovery mechanisms"
+  ],
+  "system_assessment": {
+    "communication_optimization": true,
+    "performance_targets_met": true,
+    "reliability_acceptable": false,
+    "ready_for_production": false
+  }
+}

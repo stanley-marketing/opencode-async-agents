@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from bot import SlackBot
-from config import Config
+from src.config.config import Config
 
 app = Flask(__name__)
 app.config.from_object(Config)

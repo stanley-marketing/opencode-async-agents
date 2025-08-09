@@ -1,0 +1,310 @@
+{
+  "summary": {
+    "validation_start_time": "2025-08-09T10:25:29.544978",
+    "validation_end_time": "2025-08-09T10:25:41.184499",
+    "total_duration_seconds": 11.639521,
+    "test_environment": "/tmp/tmpnf5ink5q",
+    "components_tested": [
+      "slack_integration",
+      "telegram_communication",
+      "agent_status_updates",
+      "message_formatting",
+      "live_updates",
+      "communication_flow",
+      "timing_analysis",
+      "reliability_metrics"
+    ],
+    "overall_status": "PASS"
+  },
+  "detailed_results": {
+    "slack_integration": {
+      "command_processing": {
+        "hire": {
+          "success": true,
+          "response_time": 0.0031354427337646484,
+          "response": "Successfully hired test_employee as a developer!"
+        },
+        "progress": {
+          "success": true,
+          "response_time": 0.0007295608520507812,
+          "response": "No progress found for test_employee"
+        },
+        "employees": {
+          "success": true,
+          "response_time": 0.0009894371032714844,
+          "response": "Employees:\n- coverage-worker (developer)\n- elad (python-developer)\n- realtime-test (developer)\n- sarah (developer)\n- test_employee (developer)\n- wet-worker (developer)\n"
+        },
+        "fire": {
+          "success": true,
+          "response_time": 0.0037081241607666016,
+          "response": "Successfully fired test_employee."
+        }
+      },
+      "response_timing": {
+        "average": 0.002140641212463379,
+        "max": 0.0037081241607666016,
+        "min": 0.0007295608520507812
+      },
+      "message_delivery": {},
+      "error_handling": {}
+    },
+    "telegram_communication": {
+      "connection_status": {
+        "is_connected": true
+      },
+      "message_sending": {
+        "results": [
+          {
+            "message": "Test message 1",
+            "success": true,
+            "send_time": 4.5299530029296875e-06
+          },
+          {
+            "message": "Test message with @mention",
+            "success": true,
+            "send_time": 2.86102294921875e-06
+          },
+          {
+            "message": "Test message with special characters: !@#$%^&*()",
+            "success": true,
+            "send_time": 1.1920928955078125e-06
+          },
+          {
+            "message": "Very long message: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...",
+            "success": true,
+            "send_time": 1.6689300537109375e-06
+          }
+        ],
+        "success_rate": 1.0
+      },
+      "message_parsing": {
+        "mentions_extracted": true,
+        "sender_extracted": true,
+        "text_preserved": true
+      },
+      "rate_limiting": {
+        "messages_sent": 5,
+        "messages_successful": 5,
+        "rate_limiting_active": false
+      },
+      "error_handling": {}
+    },
+    "agent_status_updates": {
+      "agent_creation": {
+        "agent_exists": false
+      },
+      "status_tracking": {},
+      "progress_updates": {
+        "task_file_created": true,
+        "progress_tracking": {
+          "progress_retrieved": true,
+          "file_status_updated": true,
+          "overall_progress": 50
+        }
+      },
+      "health_monitoring": {
+        "monitor_running": true,
+        "agents_monitored": 0,
+        "healthy_agents": 0
+      }
+    },
+    "message_formatting": {
+      "telegram_formatting": [
+        {
+          "original": "Simple message",
+          "sent": "format_test-bot: Simple message",
+          "success": true,
+          "properly_escaped": false
+        },
+        {
+          "original": "Message with *bold* and _italic_ text",
+          "sent": "format_test-bot: Message with *bold* and _italic_ text",
+          "success": true,
+          "properly_escaped": false
+        },
+        {
+          "original": "Message with [link](http://example.com)",
+          "sent": "format_test-bot: Message with [link](http://example.com)",
+          "success": true,
+          "properly_escaped": false
+        },
+        {
+          "original": "Message with code `print('hello')`",
+          "sent": "format_test-bot: Message with code `print('hello')`",
+          "success": true,
+          "properly_escaped": false
+        },
+        {
+          "original": "Message with emoji \ud83d\ude80 and symbols !@#$%",
+          "sent": "format_test-bot: Message with emoji \ud83d\ude80 and symbols !@#$%",
+          "success": true,
+          "properly_escaped": false
+        }
+      ],
+      "slack_formatting": {},
+      "special_characters": {},
+      "message_length": {
+        "long_message_handled": true,
+        "message_truncated": false,
+        "truncated_length": 5017
+      }
+    },
+    "live_updates": {
+      "real_time_updates": {
+        "updates_completed": 10,
+        "average_update_time": 0.0008185148239135742,
+        "max_update_time": 0.0014510154724121094,
+        "min_update_time": 0.0004699230194091797
+      },
+      "concurrent_processing": {},
+      "update_frequency": {},
+      "data_consistency": [
+        {
+          "agent": "live_agent_1",
+          "progress_exists": true,
+          "progress_value": 100
+        },
+        {
+          "agent": "live_agent_2",
+          "progress_exists": true,
+          "progress_value": 100
+        }
+      ]
+    },
+    "communication_flow": {
+      "message_routing": {
+        "message_processed": true,
+        "processing_time": 0.00037288665771484375,
+        "responses_generated": true
+      },
+      "agent_responses": {
+        "response_received": true,
+        "response_content": "length_test-bot: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "response_formatted": false
+      },
+      "channel_integration": {},
+      "error_propagation": {
+        "error_handled_gracefully": true,
+        "system_remained_stable": true
+      }
+    },
+    "timing_analysis": {
+      "response_times": {
+        "agent_creation": {
+          "average": 0.0007448196411132812,
+          "min": 0.00040912628173828125,
+          "max": 0.0019109249114990234,
+          "success_rate": 1.0
+        },
+        "message_processing": {
+          "average": 0.00018329620361328124,
+          "min": 0.00016164779663085938,
+          "max": 0.0002193450927734375,
+          "success_rate": 1.0
+        },
+        "progress_update": {
+          "average": 0.00012569427490234376,
+          "min": 0.0001163482666015625,
+          "max": 0.00013709068298339844,
+          "success_rate": 1.0
+        },
+        "status_check": {
+          "average": 1.049041748046875e-06,
+          "min": 4.76837158203125e-07,
+          "max": 2.86102294921875e-06,
+          "success_rate": 1.0
+        }
+      },
+      "throughput": {
+        "messages_per_second": 9.941270642166174,
+        "total_messages": 50,
+        "test_duration": 5.029538154602051
+      },
+      "latency_analysis": {},
+      "performance_bottlenecks": {}
+    },
+    "reliability_metrics": {
+      "overall_success_rate": 0.85,
+      "component_reliability": {
+        "slack": 1.0,
+        "telegram": 1.0,
+        "agent_status": 0.5
+      },
+      "error_rates": {
+        "test_error_rate": 0.0,
+        "total_errors": 0,
+        "total_tests": 8
+      },
+      "availability": 1.0
+    }
+  },
+  "findings": [
+    {
+      "category": "Slack Integration",
+      "type": "PERFORMANCE",
+      "severity": "INFO",
+      "message": "Average Slack command response time: 0.002s",
+      "details": {
+        "average": 0.002140641212463379,
+        "max": 0.0037081241607666016,
+        "min": 0.0007295608520507812
+      }
+    },
+    {
+      "category": "Telegram Communication",
+      "type": "RELIABILITY",
+      "severity": "INFO",
+      "message": "Telegram message delivery success rate: 100.0%",
+      "details": {
+        "results": [
+          {
+            "message": "Test message 1",
+            "success": true,
+            "send_time": 4.5299530029296875e-06
+          },
+          {
+            "message": "Test message with @mention",
+            "success": true,
+            "send_time": 2.86102294921875e-06
+          },
+          {
+            "message": "Test message with special characters: !@#$%^&*()",
+            "success": true,
+            "send_time": 1.1920928955078125e-06
+          },
+          {
+            "message": "Very long message: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...",
+            "success": true,
+            "send_time": 1.6689300537109375e-06
+          }
+        ],
+        "success_rate": 1.0
+      }
+    },
+    {
+      "category": "Agent Monitoring",
+      "type": "FUNCTIONALITY",
+      "severity": "INFO",
+      "message": "Health monitoring operational: True",
+      "details": {
+        "monitor_running": true,
+        "agents_monitored": 0,
+        "healthy_agents": 0
+      }
+    }
+  ],
+  "recommendations": [
+    "Improve system reliability - current success rate below 90%"
+  ],
+  "reliability_assessment": {
+    "overall_rating": "GOOD",
+    "confidence_level": "HIGH",
+    "risk_factors": [
+      "Agent_Status reliability below acceptable threshold (50.0%)"
+    ],
+    "strengths": [
+      "Slack shows high reliability (100.0%)",
+      "Telegram shows high reliability (100.0%)"
+    ]
+  }
+}

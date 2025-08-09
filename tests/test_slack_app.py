@@ -6,7 +6,7 @@ import json
 # Add the parent directory to the path so we can import our modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from slack_app import app
+from src.bot.slack_app import app
 
 class TestSlackApp(unittest.TestCase):
     def setUp(self):

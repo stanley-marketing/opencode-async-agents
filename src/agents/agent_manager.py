@@ -41,6 +41,7 @@ class AgentManager:
         # Monitoring system components (optional)
         self.health_monitor: Optional[AgentHealthMonitor] = None
         self.recovery_manager: Optional[AgentRecoveryManager] = None
+        self.task_tracker = None
         
         # Initialize agents for existing employees
         self._initialize_existing_agents()
@@ -83,6 +84,23 @@ class AgentManager:
         """
         # Store session manager for task assignment
         self.session_manager = session_manager
+        # Store task tracker for agent initialization
+        self.task_tracker = task_tracker
+        
+        # CRITICAL: Update existing agents with the TaskProgressTracker
+        # This ensures agents created before monitoring setup get access to real progress data
+        logger.info(f"Updating {len(self.agents)} existing agents with TaskProgressTracker")
+        for agent_name, agent in self.agents.items():
+            if hasattr(agent, 'task_tracker'):
+                agent.task_tracker = task_tracker
+                logger.info(f"Updated agent {agent_name} with TaskProgressTracker")
+                
+                # Also update the ReAct agent's tools if they exist
+                if hasattr(agent, 'react_agent') and agent.react_agent and hasattr(agent.react_agent, 'tools'):
+                    for tool in agent.react_agent.tools:
+                        if hasattr(tool, 'task_tracker') and hasattr(tool.__class__, 'task_tracker'):
+                            tool.__class__.task_tracker = task_tracker
+                            logger.info(f"Updated {tool.name} tool for agent {agent_name} with TaskProgressTracker")
         
         if not MONITORING_AVAILABLE:
             logger.warning("Monitoring system not available")
@@ -134,7 +152,7 @@ class AgentManager:
         if expertise is None:
             expertise = self._get_expertise_for_role(role)
         
-        agent = CommunicationAgent(employee_name, role, expertise)
+        agent = CommunicationAgent(employee_name, role, expertise, task_tracker=self.task_tracker)
         
         # Set up callbacks for worker integration
         # Use default argument trick to capture employee_name properly
@@ -142,6 +160,13 @@ class AgentManager:
         agent.on_help_received = (lambda emp: lambda help_text: self._handle_help_received(emp, help_text))(employee_name)
         
         self.agents[employee_name] = agent
+        
+        # CRITICAL FIX: Ensure agent has access to session manager if available
+        if hasattr(self, 'session_manager') and self.session_manager:
+            # Update the agent's task tracker to ensure it has the latest reference
+            if hasattr(agent, 'task_tracker'):
+                agent.task_tracker = self.task_tracker
+                logger.info(f"Updated agent {employee_name} with current TaskProgressTracker")
         
         logger.info(f"Created communication agent for {employee_name} ({role})")
         return agent
@@ -151,6 +176,28 @@ class AgentManager:
         if employee_name in self.agents:
             del self.agents[employee_name]
             logger.info(f"Removed communication agent for {employee_name}")
+    
+    def sync_agents_with_employees(self):
+        """Ensure all hired employees have corresponding communication agents"""
+        employees = self.file_manager.list_employees()
+        current_agents = set(self.agents.keys())
+        current_employees = {emp['name'] for emp in employees}
+        
+        # Create agents for employees without agents
+        missing_agents = current_employees - current_agents
+        for employee_name in missing_agents:
+            employee_info = next(emp for emp in employees if emp['name'] == employee_name)
+            expertise = self._get_expertise_for_role(employee_info['role'])
+            self.create_agent(employee_name, employee_info['role'], expertise)
+            logger.info(f"Created missing agent for employee {employee_name}")
+        
+        # Remove agents for employees that no longer exist
+        orphaned_agents = current_agents - current_employees
+        for agent_name in orphaned_agents:
+            self.remove_agent(agent_name)
+            logger.info(f"Removed orphaned agent {agent_name}")
+        
+        logger.info(f"Agent-employee synchronization complete: {len(self.agents)} agents for {len(employees)} employees")
     
     def handle_message(self, message: ParsedMessage):
         """Handle incoming messages from Telegram"""
@@ -264,7 +311,7 @@ class AgentManager:
         
         return False
     
-    def notify_task_completion(self, employee_name: str, task: str) -> bool:
+    def notify_task_completion(self, employee_name: str, task: str, task_output: str = None) -> bool:
         """Notify that an agent completed a task"""
         
         if employee_name not in self.agents:
@@ -272,7 +319,7 @@ class AgentManager:
             return False
         
         agent = self.agents[employee_name]
-        completion_message = agent.notify_worker_completed(task)
+        completion_message = agent.notify_worker_completed(task, task_output)
         
         # Send completion message to chat
         success = self.telegram_manager.send_message(completion_message, employee_name)

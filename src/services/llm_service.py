@@ -15,7 +15,7 @@ load_dotenv()
 class LLMService:
     """Service for handling LLM interactions"""
     
-    def __init__(self, model_name: str = "gpt-3.5-turbo", temperature: float = 0.7):
+    def __init__(self, model_name: str = "o4-mini"):
         """Initialize LLM service with OpenAI"""
         self.api_key = os.getenv("OPENAI_API_KEY")
         if not self.api_key:
@@ -23,8 +23,8 @@ class LLMService:
         
         self.llm = ChatOpenAI(
             model=model_name,
-            temperature=temperature,
-            openai_api_key=self.api_key
+            openai_api_key=self.api_key,
+            temperature=1
         )
     
     def generate_response(self, 
@@ -49,6 +49,5 @@ class LLMService:
         """Get information about the current model"""
         return {
             "model_name": self.llm.model_name,
-            "temperature": self.llm.temperature,
             "max_tokens": getattr(self.llm, 'max_tokens', None)
         }

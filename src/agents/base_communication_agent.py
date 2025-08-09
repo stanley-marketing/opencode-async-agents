@@ -35,10 +35,11 @@ class BaseCommunicationAgent(ABC):
         
         # Message templates
         self.acknowledgment_templates = [
-            "Got it! I'll work on {task}.",
-            "Understood. Starting work on {task}.",
-            "On it! Working on {task} now.",
-            "Sure thing. I'll handle {task}.",
+            "Got it! I'll {task}.",
+            "Sure thing! I'll {task}.",
+            "On it! I'll {task}.",
+            "Absolutely! I'll {task}.",
+            "Will do! I'll {task}.",
         ]
         
         self.completion_templates = [

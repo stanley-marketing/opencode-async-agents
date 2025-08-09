@@ -103,6 +103,11 @@ class AgentHealthMonitor:
             agent_name: Name of the agent
             status: Current status of the agent
         """
+        # Validate status
+        if not status or not isinstance(status, dict):
+            logger.warning(f"Invalid status received for agent {agent_name}: {status}")
+            return
+        
         # Record current status in history
         if agent_name not in self.agent_history:
             self.agent_history[agent_name] = []
@@ -145,6 +150,12 @@ class AgentHealthMonitor:
         """
         anomalies = []
         
+        # Check if status is None or invalid
+        status = status_record.get('status')
+        if not status or not isinstance(status, dict):
+            logger.warning(f"Invalid status for agent {agent_name}: {status}")
+            return anomalies
+        
         # Check if agent is stuck (same status for too long)
         if self._is_agent_stuck(agent_name, status_record):
             anomalies.append("STUCK_STATE")
@@ -154,7 +165,7 @@ class AgentHealthMonitor:
             anomalies.append("PROGRESS_STAGNANT")
         
         # Check if agent is in error state
-        worker_status = status_record['status'].get('worker_status', 'idle')
+        worker_status = status.get('worker_status', 'idle')
         if worker_status == 'stuck':
             anomalies.append("WORKER_STUCK")
         
@@ -177,11 +188,15 @@ class AgentHealthMonitor:
             return False  # Not enough history to determine if stuck
         
         # Check if last 3 statuses are identical
-        last_status = history[-1]['status']
+        last_status = history[-1].get('status')
+        if not last_status or not isinstance(last_status, dict):
+            return False  # Invalid status, can't determine if stuck
+        
         for i in range(-2, -4, -1):
             if i < -len(history):
                 break
-            if history[i]['status'] != last_status:
+            old_status = history[i].get('status')
+            if not old_status or not isinstance(old_status, dict) or old_status != last_status:
                 return False
         
         # If we get here, agent has been in same state for at least 3 checks
