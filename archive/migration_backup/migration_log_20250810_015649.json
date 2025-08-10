@@ -1,0 +1,50 @@
+[
+  {
+    "timestamp": "2025-08-10T01:56:37.597299",
+    "step": "Backup Configuration",
+    "status": "START",
+    "details": ""
+  },
+  {
+    "timestamp": "2025-08-10T01:56:37.597926",
+    "step": "Backup Configuration",
+    "status": "INFO",
+    "details": "Backed up .env"
+  },
+  {
+    "timestamp": "2025-08-10T01:56:37.598481",
+    "step": "Backup Configuration",
+    "status": "INFO",
+    "details": "Backed up .env.production"
+  },
+  {
+    "timestamp": "2025-08-10T01:56:37.599272",
+    "step": "Backup Configuration",
+    "status": "INFO",
+    "details": "Backed up config/config.yaml"
+  },
+  {
+    "timestamp": "2025-08-10T01:56:37.599732",
+    "step": "Backup Configuration",
+    "status": "INFO",
+    "details": "Backed up src/chat/chat_config.py"
+  },
+  {
+    "timestamp": "2025-08-10T01:56:37.599874",
+    "step": "Backup Configuration",
+    "status": "SUCCESS",
+    "details": "Configuration backup completed"
+  },
+  {
+    "timestamp": "2025-08-10T01:56:37.599935",
+    "step": "Test WebSocket",
+    "status": "START",
+    "details": "Testing connection to localhost:8765"
+  },
+  {
+    "timestamp": "2025-08-10T01:56:49.683520",
+    "step": "Test WebSocket",
+    "status": "ERROR",
+    "details": "WebSocket server failed to start"
+  }
+]

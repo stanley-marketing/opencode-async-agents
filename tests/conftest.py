@@ -107,7 +107,7 @@ def test_port(request):
 
 
 @pytest.fixture(autouse=True)
-async def setup_test_environment(test_config):
+def setup_test_environment(test_config):
     """Set up test environment before each test"""
     
     # Ensure test directories exist
@@ -125,7 +125,7 @@ async def setup_test_environment(test_config):
 
 
 @pytest.fixture
-async def mock_agent_responses():
+def mock_agent_responses():
     """Fixture to provide mock agent responses for testing"""
     return {
         "alice": [
@@ -242,6 +242,5 @@ def test_assertions():
 # Pytest plugins configuration
 pytest_plugins = [
     "pytest_asyncio",
-    "pytest_html",
     "pytest_cov"
 ]

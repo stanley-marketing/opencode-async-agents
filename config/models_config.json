@@ -1,0 +1,12 @@
+{
+  "smart": {
+    "name": "openrouter/google/gemini-2.5-pro",
+    "description": "High-performance model for complex planning and analysis",
+    "cost_level": "high"
+  },
+  "normal": {
+    "name": "openrouter/qwen/qwen3-coder",
+    "description": "Efficient model for code writing and execution",
+    "cost_level": "low"
+  }
+}

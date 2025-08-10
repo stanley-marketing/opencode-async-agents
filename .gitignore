@@ -170,10 +170,49 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-sessions
-
+# Project-specific ignores
+sessions/
 employees.db
+employees.db-*
+test.db
+monitoring_metrics.db
 
+# Temporary directories
 tmp/**
+archive/temp-files/**
+archive/old-sessions*/**
 
+# Python
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

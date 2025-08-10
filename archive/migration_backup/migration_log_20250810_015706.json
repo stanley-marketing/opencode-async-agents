@@ -1,0 +1,74 @@
+[
+  {
+    "timestamp": "2025-08-10T01:56:54.895572",
+    "step": "Backup Configuration",
+    "status": "START",
+    "details": ""
+  },
+  {
+    "timestamp": "2025-08-10T01:56:54.895994",
+    "step": "Backup Configuration",
+    "status": "INFO",
+    "details": "Backed up .env"
+  },
+  {
+    "timestamp": "2025-08-10T01:56:54.896277",
+    "step": "Backup Configuration",
+    "status": "INFO",
+    "details": "Backed up .env.production"
+  },
+  {
+    "timestamp": "2025-08-10T01:56:54.896469",
+    "step": "Backup Configuration",
+    "status": "INFO",
+    "details": "Backed up config/config.yaml"
+  },
+  {
+    "timestamp": "2025-08-10T01:56:54.896624",
+    "step": "Backup Configuration",
+    "status": "INFO",
+    "details": "Backed up src/chat/chat_config.py"
+  },
+  {
+    "timestamp": "2025-08-10T01:56:54.896671",
+    "step": "Backup Configuration",
+    "status": "SUCCESS",
+    "details": "Configuration backup completed"
+  },
+  {
+    "timestamp": "2025-08-10T01:56:54.896706",
+    "step": "Test WebSocket",
+    "status": "START",
+    "details": "Testing connection to localhost:8765"
+  },
+  {
+    "timestamp": "2025-08-10T01:57:06.972868",
+    "step": "Test WebSocket",
+    "status": "ERROR",
+    "details": "WebSocket server failed to start"
+  },
+  {
+    "timestamp": "2025-08-10T01:57:06.973203",
+    "step": "Rollback Migration",
+    "status": "START",
+    "details": ""
+  },
+  {
+    "timestamp": "2025-08-10T01:57:06.973740",
+    "step": "Rollback Migration",
+    "status": "INFO",
+    "details": "Restored .env"
+  },
+  {
+    "timestamp": "2025-08-10T01:57:06.974043",
+    "step": "Rollback Migration",
+    "status": "INFO",
+    "details": "Restored .env.production"
+  },
+  {
+    "timestamp": "2025-08-10T01:57:06.974114",
+    "step": "Rollback Migration",
+    "status": "SUCCESS",
+    "details": "Migration rollback completed"
+  }
+]

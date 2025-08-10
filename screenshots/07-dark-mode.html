@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenCode Team Chat - Dark Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <style>
+        .typing-dots {
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        .typing-dots:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dots:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+        .online-indicator {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .dark-gradient {
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+        }
+        .glow {
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 h-screen overflow-hidden text-gray-100">
+    <div class="flex h-full">
+        <!-- Main Chat Area -->
+        <div class="flex-1 flex flex-col">
+            <!-- Header -->
+            <div class="dark-gradient border-b border-gray-700 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center glow">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-semibold text-white">OpenCode Team Chat</h1>
+                            <p class="text-sm text-gray-300">Real-time communication with AI agents</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 bg-green-400 rounded-full online-indicator"></div>
+                            <span class="text-sm text-gray-300">Connected</span>
+                        </div>
+                        <span class="text-sm text-gray-400">8 online</span>
+                        <!-- Dark Mode Toggle -->
+                        <button class="p-2 text-gray-300 hover:text-white rounded-lg hover:bg-gray-700">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages Area -->
+            <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4 bg-gray-900">
+                <!-- Welcome Message -->
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-purple-900 rounded-full flex items-center justify-center border border-purple-700">
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-purple-400">system-bot</span>
+                            <span class="text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded-full border border-purple-700">AI</span>
+                            <span class="text-xs text-gray-500">09:15</span>
+                        </div>
+                        <div class="bg-gray-800 border border-purple-700 text-purple-200 px-3 py-2 rounded-lg max-w-lg">
+                            Welcome to OpenCode Team Chat! 🚀 Dark mode is now active. You can mention team members with @username or AI agents. Type /help for available commands.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Message -->
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-blue-900 rounded-full flex items-center justify-center border border-blue-700">
+                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-gray-200">john.doe</span>
+                            <span class="text-xs text-gray-500">09:16</span>
+                        </div>
+                        <div class="bg-blue-600 text-white px-3 py-2 rounded-lg max-w-lg glow">
+                            Hey team! I love the new dark mode! 🌙 <span class="bg-blue-500 px-1 rounded">@analyst</span> could you analyze the performance impact of the dark theme?
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Agent Response -->
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-purple-900 rounded-full flex items-center justify-center border border-purple-700">
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-purple-400">analyst-bot</span>
+                            <span class="text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded-full border border-purple-700">AI</span>
+                            <span class="text-xs text-gray-500">09:17</span>
+                        </div>
+                        <div class="bg-gray-800 border border-purple-700 text-purple-200 px-3 py-2 rounded-lg max-w-lg">
+                            <p class="mb-2">Dark mode analysis complete! 📊 Here are the benefits:</p>
+                            <ul class="list-disc list-inside space-y-1 text-sm">
+                                <li>Reduced eye strain in low-light environments</li>
+                                <li>Lower power consumption on OLED displays</li>
+                                <li>Improved focus and readability</li>
+                                <li>Modern, professional appearance</li>
+                            </ul>
+                            <p class="mt-2 text-sm">Performance impact: <span class="text-green-400 font-medium">Minimal (+2% efficiency)</span></p>
+                        </div>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <button class="flex items-center space-x-1 text-xs text-gray-500 hover:text-blue-400">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
+                                </svg>
+                                <span>Reply</span>
+                            </button>
+                            <button class="flex items-center space-x-1 text-xs text-gray-500 hover:text-yellow-400">
+                                <span>👍</span>
+                                <span>3</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Team Member Response -->
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-green-900 rounded-full flex items-center justify-center border border-green-700">
+                        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-gray-200">sarah.wilson</span>
+                            <span class="text-xs text-gray-500">09:18</span>
+                        </div>
+                        <div class="bg-gray-800 border border-gray-600 text-gray-200 px-3 py-2 rounded-lg max-w-lg">
+                            Excellent analysis! <span class="bg-purple-900 text-purple-300 px-1 rounded border border-purple-700">@analyst</span> The dark theme also helps with accessibility. I've added automatic theme switching based on system preferences! 🎨
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Command Message -->
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-blue-900 rounded-full flex items-center justify-center border border-blue-700">
+                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-gray-200">john.doe</span>
+                            <span class="text-xs text-gray-500">09:19</span>
+                        </div>
+                        <div class="bg-gray-800 border border-gray-600 font-mono text-sm px-3 py-2 rounded-lg max-w-lg">
+                            /theme status
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Response -->
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-purple-900 rounded-full flex items-center justify-center border border-purple-700">
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-purple-400">system-bot</span>
+                            <span class="text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded-full border border-purple-700">AI</span>
+                            <span class="text-xs text-gray-500">09:19</span>
+                        </div>
+                        <div class="bg-gray-800 border border-purple-700 text-purple-200 px-3 py-2 rounded-lg max-w-lg">
+                            <div class="font-mono text-sm">
+                                <div class="mb-2"><strong>🌙 Dark Theme Status:</strong></div>
+                                <div class="space-y-1">
+                                    <div>🟢 Dark Mode: <span class="text-green-400">Active</span></div>
+                                    <div>🟢 Auto Switch: <span class="text-green-400">Enabled</span></div>
+                                    <div>🟢 High Contrast: <span class="text-blue-400">Available</span></div>
+                                    <div>🟢 Color Blind Support: <span class="text-green-400">Enabled</span></div>
+                                    <div class="mt-2 text-xs text-gray-400">Theme preference: System default (Dark)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Code Block Example -->
+                <div class="flex items-start space-x-3">
+                    <div class="w-8 h-8 bg-purple-900 rounded-full flex items-center justify-center border border-purple-700">
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-purple-400">developer-bot</span>
+                            <span class="text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded-full border border-purple-700">AI</span>
+                            <span class="text-xs text-gray-500">09:20</span>
+                        </div>
+                        <div class="bg-gray-800 border border-purple-700 text-purple-200 px-3 py-2 rounded-lg max-w-lg">
+                            <p class="mb-2">Here's the CSS for dark mode implementation:</p>
+                            <div class="bg-gray-900 border border-gray-700 rounded p-3 font-mono text-xs overflow-x-auto">
+                                <div class="text-blue-400">/* Dark mode variables */</div>
+                                <div class="text-gray-300">:root.dark {</div>
+                                <div class="text-green-400 ml-2">--bg-primary: #111827;</div>
+                                <div class="text-green-400 ml-2">--bg-secondary: #1f2937;</div>
+                                <div class="text-green-400 ml-2">--text-primary: #f9fafb;</div>
+                                <div class="text-green-400 ml-2">--accent: #3b82f6;</div>
+                                <div class="text-gray-300">}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Typing Indicator -->
+            <div class="px-6 py-2 bg-gray-800 border-t border-gray-700">
+                <div class="flex items-center space-x-2 text-sm text-gray-400">
+                    <div class="w-6 h-6 bg-yellow-900 rounded-full flex items-center justify-center border border-yellow-700">
+                        <svg class="w-3 h-3 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                    <span>mike.chen is typing</span>
+                    <div class="flex space-x-1">
+                        <div class="w-1 h-1 bg-gray-500 rounded-full typing-dots"></div>
+                        <div class="w-1 h-1 bg-gray-500 rounded-full typing-dots"></div>
+                        <div class="w-1 h-1 bg-gray-500 rounded-full typing-dots"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Message Input -->
+            <div class="border-t border-gray-700 p-4 bg-gray-800">
+                <div class="flex items-end space-x-3">
+                    <div class="flex-1">
+                        <textarea 
+                            class="w-full px-4 py-3 border border-gray-600 bg-gray-700 text-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400" 
+                            rows="1" 
+                            placeholder="Type a message... Use @username to mention someone or /command for actions"
+                        ></textarea>
+                    </div>
+                    <button class="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition-colors glow">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="w-80 bg-gray-800 border-l border-gray-700">
+            <!-- Sidebar Header -->
+            <div class="p-4 border-b border-gray-700 dark-gradient">
+                <h2 class="font-semibold text-gray-200">Team Members</h2>
+                <p class="text-sm text-gray-400">8 online • 12 total</p>
+            </div>
+
+            <!-- Online Users -->
+            <div class="p-4">
+                <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Online Now</h3>
+                <div class="space-y-2">
+                    <!-- Current User -->
+                    <div class="flex items-center space-x-3 p-2 rounded-lg bg-blue-900 border border-blue-700">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-blue-800 rounded-full flex items-center justify-center border border-blue-600">
+                                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-gray-800 rounded-full"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-200">john.doe (You)</div>
+                            <div class="text-xs text-gray-400">Product Manager</div>
+                        </div>
+                    </div>
+
+                    <!-- Team Members -->
+                    <div class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-700">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-green-800 rounded-full flex items-center justify-center border border-green-600">
+                                <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-gray-800 rounded-full"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-200">sarah.wilson</div>
+                            <div class="text-xs text-gray-400">Senior Developer</div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-700">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-yellow-800 rounded-full flex items-center justify-center border border-yellow-600">
+                                <svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-yellow-400 border-2 border-gray-800 rounded-full"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-200">mike.chen</div>
+                            <div class="text-xs text-yellow-400">Away • UX Designer</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Agents -->
+                <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3 mt-6">AI Agents</h3>
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-700 border border-purple-700">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-purple-800 rounded-full flex items-center justify-center border border-purple-600">
+                                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-gray-800 rounded-full online-indicator"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-purple-400">analyst-bot</div>
+                            <div class="text-xs text-gray-400">Security & Code Analysis</div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-700 border border-purple-700">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-purple-800 rounded-full flex items-center justify-center border border-purple-600">
+                                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-gray-800 rounded-full online-indicator"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-purple-400">developer-bot</div>
+                            <div class="text-xs text-gray-400">Code Generation & Review</div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-700 border border-purple-700">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-purple-800 rounded-full flex items-center justify-center border border-purple-600">
+                                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-gray-800 rounded-full online-indicator"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-purple-400">designer-bot</div>
+                            <div class="text-xs text-gray-400">UI/UX Design Assistant</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Theme Settings -->
+                <div class="mt-6 p-3 bg-gray-700 border border-gray-600 rounded-lg">
+                    <h4 class="text-xs font-medium text-gray-300 mb-2">Theme Settings</h4>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-400">Dark Mode</span>
+                            <div class="w-8 h-4 bg-blue-600 rounded-full relative">
+                                <div class="w-3 h-3 bg-white rounded-full absolute right-0.5 top-0.5"></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-400">Auto Switch</span>
+                            <div class="w-8 h-4 bg-blue-600 rounded-full relative">
+                                <div class="w-3 h-3 bg-white rounded-full absolute right-0.5 top-0.5"></div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-400">High Contrast</span>
+                            <div class="w-8 h-4 bg-gray-600 rounded-full relative">
+                                <div class="w-3 h-3 bg-white rounded-full absolute left-0.5 top-0.5"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

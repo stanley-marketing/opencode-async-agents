@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenCode Team Chat - User Presence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .online-indicator {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .away-indicator {
+            animation: fade 3s infinite;
+        }
+        @keyframes fade {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+        .busy-indicator {
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen overflow-hidden">
+    <div class="flex h-full">
+        <!-- Main Chat Area -->
+        <div class="flex-1 flex flex-col">
+            <!-- Header -->
+            <div class="bg-white border-b border-gray-200 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-semibold text-gray-900">OpenCode Team Chat</h1>
+                            <p class="text-sm text-gray-500">Real-time communication with AI agents</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 bg-green-400 rounded-full online-indicator"></div>
+                            <span class="text-sm text-gray-600">Connected</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-green-600 font-medium">6 online</span>
+                            <span class="text-sm text-yellow-600">2 away</span>
+                            <span class="text-sm text-red-600">1 busy</span>
+                            <span class="text-sm text-gray-500">3 offline</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages Area -->
+            <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                <!-- Messages with presence indicators -->
+                <div class="flex items-start space-x-3">
+                    <div class="relative">
+                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                        </div>
+                        <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full online-indicator"></div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-gray-900">john.doe</span>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-2 h-2 bg-green-400 rounded-full online-indicator"></div>
+                                <span class="text-xs text-green-600 font-medium">Online</span>
+                            </div>
+                            <span class="text-xs text-gray-500">09:16</span>
+                        </div>
+                        <div class="bg-blue-600 text-white px-3 py-2 rounded-lg max-w-lg">
+                            Hey team! Let's review the project status. Everyone available?
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-start space-x-3">
+                    <div class="relative">
+                        <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                        </div>
+                        <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full online-indicator"></div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-gray-900">sarah.wilson</span>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-2 h-2 bg-green-400 rounded-full online-indicator"></div>
+                                <span class="text-xs text-green-600 font-medium">Online</span>
+                            </div>
+                            <span class="text-xs text-gray-500">09:17</span>
+                        </div>
+                        <div class="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg max-w-lg">
+                            I'm here and ready! 👍
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-start space-x-3">
+                    <div class="relative">
+                        <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                            <svg class="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                        </div>
+                        <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-yellow-400 border-2 border-white rounded-full away-indicator"></div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-gray-900">mike.chen</span>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-2 h-2 bg-yellow-400 rounded-full away-indicator"></div>
+                                <span class="text-xs text-yellow-600 font-medium">Away</span>
+                                <span class="text-xs text-gray-400">• Back in 15 min</span>
+                            </div>
+                            <span class="text-xs text-gray-500">09:18</span>
+                        </div>
+                        <div class="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg max-w-lg">
+                            In a quick meeting, will join in 15 minutes!
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-start space-x-3">
+                    <div class="relative">
+                        <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                            <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                        </div>
+                        <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-500 border-2 border-white rounded-full busy-indicator"></div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-gray-900">anna.kim</span>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-2 h-2 bg-red-500 rounded-full busy-indicator"></div>
+                                <span class="text-xs text-red-600 font-medium">Busy</span>
+                                <span class="text-xs text-gray-400">• Do not disturb</span>
+                            </div>
+                            <span class="text-xs text-gray-500">09:19</span>
+                        </div>
+                        <div class="bg-white border border-gray-200 text-gray-900 px-3 py-2 rounded-lg max-w-lg">
+                            In deep focus mode until 11 AM. Will catch up later! 🎯
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Agent Messages with presence -->
+                <div class="flex items-start space-x-3">
+                    <div class="relative">
+                        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                            <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full online-indicator"></div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <span class="text-sm font-medium text-purple-600">analyst-bot</span>
+                            <span class="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full">AI</span>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-2 h-2 bg-green-400 rounded-full online-indicator"></div>
+                                <span class="text-xs text-green-600 font-medium">Active</span>
+                                <span class="text-xs text-gray-400">• Processing</span>
+                            </div>
+                            <span class="text-xs text-gray-500">09:20</span>
+                        </div>
+                        <div class="bg-purple-50 border border-purple-200 text-purple-900 px-3 py-2 rounded-lg max-w-lg">
+                            I'm available and ready to help with the project analysis! Current system load: 23% 📊
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Status Message -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span class="text-sm font-medium text-blue-900">Team Presence Update</span>
+                    </div>
+                    <div class="text-sm text-blue-800 space-y-1">
+                        <div>• <strong>alex.rodriguez</strong> just came online</div>
+                        <div>• <strong>emma.taylor</strong> is now away (lunch break)</div>
+                        <div>• <strong>developer-bot</strong> is now active (high priority mode)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Message Input -->
+            <div class="border-t border-gray-200 p-4 bg-white">
+                <div class="flex items-end space-x-3">
+                    <div class="flex-1">
+                        <textarea 
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                            rows="1" 
+                            placeholder="Type a message... Use @username to mention someone or /command for actions"
+                        ></textarea>
+                    </div>
+                    <button class="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enhanced Sidebar with Detailed Presence -->
+        <div class="w-80 bg-white border-l border-gray-200">
+            <!-- Sidebar Header -->
+            <div class="p-4 border-b border-gray-200">
+                <h2 class="font-semibold text-gray-900">Team Members</h2>
+                <div class="text-sm text-gray-500 mt-1">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-1">
+                            <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                            <span>6 online</span>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <div class="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                            <span>2 away</span>
+                        </div>
+                        <div class="flex items-center space-x-1">
+                            <div class="w-2 h-2 bg-red-500 rounded-full"></div>
+                            <span>1 busy</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Presence Status Selector -->
+            <div class="p-4 border-b border-gray-200 bg-gray-50">
+                <div class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Your Status</div>
+                <div class="flex items-center space-x-3 p-2 rounded-lg bg-green-50 border border-green-200">
+                    <div class="relative">
+                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                        </div>
+                        <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full online-indicator"></div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="text-sm font-medium text-gray-900">john.doe (You)</div>
+                        <div class="flex items-center space-x-1">
+                            <div class="w-2 h-2 bg-green-400 rounded-full online-indicator"></div>
+                            <span class="text-xs text-green-600 font-medium">Online</span>
+                        </div>
+                    </div>
+                    <button class="text-xs text-blue-600 hover:text-blue-800">Change</button>
+                </div>
+            </div>
+
+            <!-- Online Users -->
+            <div class="p-4">
+                <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3 flex items-center">
+                    <div class="w-2 h-2 bg-green-400 rounded-full mr-2 online-indicator"></div>
+                    Online (6)
+                </h3>
+                <div class="space-y-2">
+                    <!-- Current User -->
+                    <div class="flex items-center space-x-3 p-2 rounded-lg bg-blue-50">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full online-indicator"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-900">john.doe (You)</div>
+                            <div class="text-xs text-green-600">Active now</div>
+                        </div>
+                    </div>
+
+                    <!-- Team Members -->
+                    <div class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full online-indicator"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-900">sarah.wilson</div>
+                            <div class="text-xs text-green-600">Active 2 min ago</div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full online-indicator"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-900">alex.rodriguez</div>
+                            <div class="text-xs text-green-600">Just joined</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Away Users -->
+                <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3 mt-6 flex items-center">
+                    <div class="w-2 h-2 bg-yellow-400 rounded-full mr-2 away-indicator"></div>
+                    Away (2)
+                </h3>
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 opacity-75">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-yellow-400 border-2 border-white rounded-full away-indicator"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-900">mike.chen</div>
+                            <div class="text-xs text-yellow-600">Back in 15 min</div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 opacity-75">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-yellow-400 border-2 border-white rounded-full away-indicator"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-900">emma.taylor</div>
+                            <div class="text-xs text-yellow-600">Lunch break</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Busy Users -->
+                <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3 mt-6 flex items-center">
+                    <div class="w-2 h-2 bg-red-500 rounded-full mr-2 busy-indicator"></div>
+                    Busy (1)
+                </h3>
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 opacity-75">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-500 border-2 border-white rounded-full busy-indicator"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-900">anna.kim</div>
+                            <div class="text-xs text-red-600">Do not disturb</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Agents -->
+                <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3 mt-6 flex items-center">
+                    <div class="w-2 h-2 bg-green-400 rounded-full mr-2 online-indicator"></div>
+                    AI Agents (5)
+                </h3>
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-3 p-2 rounded-lg hover:bg-purple-50">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full online-indicator"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-purple-600">analyst-bot</div>
+                            <div class="text-xs text-green-600">Active • Load: 23%</div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 p-2 rounded-lg hover:bg-purple-50">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full online-indicator"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-purple-600">developer-bot</div>
+                            <div class="text-xs text-green-600">High Priority Mode</div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 p-2 rounded-lg hover:bg-purple-50">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full online-indicator"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-purple-600">designer-bot</div>
+                            <div class="text-xs text-green-600">Active • Load: 45%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Offline Users -->
+                <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3 mt-6 flex items-center">
+                    <div class="w-2 h-2 bg-gray-300 rounded-full mr-2"></div>
+                    Offline (3)
+                </h3>
+                <div class="space-y-2 opacity-50">
+                    <div class="flex items-center space-x-3 p-2 rounded-lg">
+                        <div class="relative">
+                            <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                            </div>
+                            <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-gray-300 border-2 border-white rounded-full"></div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="text-sm font-medium text-gray-900">david.lee</div>
+                            <div class="text-xs text-gray-500">Last seen 2 hours ago</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
