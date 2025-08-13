@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Input validation and sanitization utilities for API endpoints.
 """

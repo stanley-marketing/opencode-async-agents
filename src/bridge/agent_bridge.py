@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Agent bridge for connecting communication and worker agents.
 Handles task assignment, progress updates, and help coordination.

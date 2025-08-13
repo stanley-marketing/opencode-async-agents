@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Message Persistence Module
 Handles chat history storage, message replay, and conversation threading.

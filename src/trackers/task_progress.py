@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 from datetime import datetime
 from src.config.logging_config import logger
 from typing import Dict, List, Optional

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 WebSocket Agent Bridge
 Enhances agent communication with real-time WebSocket capabilities.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Production-grade monitoring system integration for OpenCode-Slack.
 Integrates all monitoring components: metrics collection, alerting, observability,

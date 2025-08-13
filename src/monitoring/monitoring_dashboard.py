@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Monitoring Dashboard for the OpenCode-Slack system.
 Provides real-time view of agent status and health metrics.

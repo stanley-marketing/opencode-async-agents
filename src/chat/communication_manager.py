@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Unified communication manager supporting both Telegram and WebSocket transports.
 Provides seamless switching between communication backends.

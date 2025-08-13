@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 WebSocket Authentication Module
 Provides secure authentication and session management for WebSocket connections.

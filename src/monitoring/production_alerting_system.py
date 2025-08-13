@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Production-grade alerting system for OpenCode-Slack.
 Implements intelligent alerting with severity levels, escalation, correlation,

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 High-Performance WebSocket Connection Pool
 Manages connection pooling and load balancing for optimal performance

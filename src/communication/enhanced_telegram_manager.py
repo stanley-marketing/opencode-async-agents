@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """
 Enhanced Telegram Manager with optimized communication features

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 ReAct Agent using LangChain structured output for intelligent task handling and project interaction
 """

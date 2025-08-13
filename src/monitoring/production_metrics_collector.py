@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Production-grade metrics collection system for OpenCode-Slack.
 Implements comprehensive system performance monitoring, business metrics tracking,

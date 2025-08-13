@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Rate limiting system for OpenCode-Slack API.
 Implements per-endpoint and per-user rate limiting.

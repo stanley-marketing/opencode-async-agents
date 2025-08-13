@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Individual communication agent implementation.
 Handles specific employee communication in the chat.

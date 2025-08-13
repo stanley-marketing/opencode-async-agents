@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Encryption utilities for OpenCode-Slack API.
 Provides data encryption/decryption for sensitive information.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Production-grade monitoring dashboard for OpenCode-Slack.
 Implements real-time dashboards, role-based access, mobile-responsive interfaces,

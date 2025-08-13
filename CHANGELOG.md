@@ -1,5 +1,36 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased] - OSS Hygiene & Compliance
+
+### Added
+- OSS Hygiene & Compliance implementation
+- Updated licensing to Progressus Software Ltd.
+- Added SPDX license identifiers to all source files
+- Created NOTICE file with licensing information
+- Added comprehensive security documentation (SECURITY.md)
+- Implemented GitHub Actions for CI/CD
+- Added SBOM generation and security scanning
+- Created .env.example for configuration
+- Added contributing guidelines (CONTRIBUTING.md) and code of conduct
+- Established maintainer documentation (MAINTAINERS.md)
+- Added Python packaging configuration (pyproject.toml)
+
+### Changed
+- Updated README with proper project information
+- Enhanced .gitignore for better secret protection
+- Updated copyright from Solara AI to Progressus Software Ltd.
+
+### Security
+- Added gitleaks secret scanning with SARIF output
+- Implemented CodeQL security analysis in CI
+- Enhanced dependency vulnerability scanning
+- Added security policy and reporting procedures
+
 ## [Production Cleanup] - 2025-08-10
 
 ### 🧹 **Major Project Cleanup & Organization**

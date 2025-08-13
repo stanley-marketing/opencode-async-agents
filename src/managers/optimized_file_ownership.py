@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """
 Optimized File Ownership Manager with advanced connection pooling, batch operations,

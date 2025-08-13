@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Message parser for Telegram chat integration.
 Handles @mentions, commands, and message analysis.

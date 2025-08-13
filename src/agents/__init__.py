@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Agent module for communication agents.
 Handles chat-based communication between users and AI employees.

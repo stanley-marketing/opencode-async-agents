@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Tools for the ReAct agent to interact with the project and coding system
 """

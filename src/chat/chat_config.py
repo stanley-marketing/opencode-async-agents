@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Configuration for Telegram chat integration.
 Handles bot tokens, chat IDs, and other settings.

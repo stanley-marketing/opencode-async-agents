@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Production-ready WebSocket security manager.
 Implements comprehensive security measures for WebSocket communication.

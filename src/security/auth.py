@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Authentication system for OpenCode-Slack API.
 Supports JWT tokens and API keys for secure access.

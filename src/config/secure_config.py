@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Secure configuration management with validation and environment-specific loading.
 """

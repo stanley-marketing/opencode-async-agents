@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Chat module for Telegram integration with AI employees.
 Handles group chat communication, @mentions, and agent coordination.

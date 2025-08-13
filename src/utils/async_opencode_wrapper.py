@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """
 Asynchronous OpenCode Wrapper with connection pooling, rate limiting, and queue management.

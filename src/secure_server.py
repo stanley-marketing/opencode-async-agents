@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """
 Secure server for opencode-slack system with comprehensive authentication and security.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """
 WebSocket-enabled OpenCode-Slack Server with real-time communication.

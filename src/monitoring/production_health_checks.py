@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Production-grade health check system for OpenCode-Slack.
 Implements deep health checks, dependency monitoring, cascade failure detection,

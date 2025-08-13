@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """
 Enhanced OpenCode-Slack Server with comprehensive error handling and resilience.

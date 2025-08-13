@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Agent Recovery Manager for the OpenCode-Slack system.
 Handles automatic recovery of stuck or unresponsive agents.

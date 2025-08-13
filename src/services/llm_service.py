@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 LLM Service for handling AI agent communication
 """

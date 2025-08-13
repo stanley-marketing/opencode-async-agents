@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Integration layer for WebSocket security with existing WebSocket manager.
 Provides secure wrapper for WebSocketManager with comprehensive security features.

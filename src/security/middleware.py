@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Security middleware for OpenCode-Slack API.
 Provides request validation, security headers, and audit logging.

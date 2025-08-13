@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Message validation and sanitization for WebSocket communications.
 Implements comprehensive input validation, XSS protection, and content filtering.

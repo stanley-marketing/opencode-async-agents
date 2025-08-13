@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Production-grade observability system for OpenCode-Slack.
 Implements distributed tracing, structured logging with correlation IDs,

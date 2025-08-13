@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Memory Manager for Communication Agents
 Handles short-term memory storage and retrieval for individual agents.

@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opencode-async-agents"
+version = "0.1.0"
+description = "Asynchronous agent management and orchestration framework"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Progressus Software Ltd.", email = "oss@progressus-software.com"}
+]
+maintainers = [
+    {name = "Progressus Software Ltd.", email = "oss@progressus-software.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Tools",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "aiofiles>=0.8.0",
+    "asyncio-mqtt>=0.11.0",
+    "fastapi>=0.68.0",
+    "pydantic>=1.8.0",
+    "uvicorn>=0.15.0",
+    "websockets>=10.0",
+    "pyjwt>=2.0.0",
+    "cryptography>=3.4.0",
+    "asyncpg>=0.24.0",
+    "aiosqlite>=0.17.0",
+    "redis>=4.0.0",
+    "pytest>=6.0.0",
+    "pytest-asyncio>=0.15.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/stanley-marketing/opencode-async-agents"
+Repository = "https://github.com/stanley-marketing/opencode-async-agents.git"
+Issues = "https://github.com/stanley-marketing/opencode-async-agents/issues"
+Documentation = "https://github.com/stanley-marketing/opencode-async-agents#readme"
+
+[project.scripts]
+opencode-agents = "src.cli_server:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+exclude = ["tests*", "archive*", "scripts*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.md", "*.txt", "*.yaml", "*.yml", "*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.flake8]
+max-line-length = 127
+exclude = [".git", "__pycache__", "archive", "build", "dist"]
+ignore = ["E203", "W503"]

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 from datetime import datetime
 from pathlib import Path
 from src.config.config import Config

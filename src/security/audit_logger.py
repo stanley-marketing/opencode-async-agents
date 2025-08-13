@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Security audit logging system for WebSocket communications.
 Provides comprehensive logging, monitoring, and alerting for security events.

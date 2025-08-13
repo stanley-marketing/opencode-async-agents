@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
 """
 Wrapper script to run opencode commands with our employee management system.
 Handles real opencode session spawning, background execution, and progress tracking.

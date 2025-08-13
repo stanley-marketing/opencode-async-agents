@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """
 Enhanced Database Manager with comprehensive error handling and resilience features.

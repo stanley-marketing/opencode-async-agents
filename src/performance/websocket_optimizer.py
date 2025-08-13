@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 High-Performance WebSocket Optimizer for OpenCode-Slack
 Optimizes WebSocket connections for 1000+ concurrent users with <100ms latency

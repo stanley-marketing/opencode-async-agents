@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 High-Performance WebSocket Optimization Package
 Provides optimized WebSocket components for 1000+ concurrent users with <100ms latency

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """
 Advanced Monitoring System for OpenCode-Slack Concurrency

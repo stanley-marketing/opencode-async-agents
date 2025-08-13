@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 WebSocket Server Integration Module
 Provides seamless WebSocket integration for all existing servers.

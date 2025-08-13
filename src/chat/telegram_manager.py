@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Telegram manager for handling bot communication.
 Manages message sending, receiving, and webhook/polling setup.

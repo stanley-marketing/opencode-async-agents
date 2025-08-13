@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Agent manager for coordinating all communication agents.
 Handles agent creation, message routing, and lifecycle management.

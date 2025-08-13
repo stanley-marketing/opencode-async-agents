@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  push:
+    tags: [ 'v*.*.*' ]
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          output-file: 'SBOM.spdx.json'
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            SBOM.spdx.json
+            .compliance/gitleaks.sarif
+          generate_release_notes: true
+          body: |
+            ## OSS Hygiene & Compliance Release
+            
+            This release includes:
+            - Security scanning results
+            - Software Bill of Materials (SBOM)
+            - Updated licensing and documentation
+            
+            See attached compliance artifacts for details.

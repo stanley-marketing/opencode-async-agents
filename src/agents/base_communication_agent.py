@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Base communication agent class.
 Defines the interface and common behavior for all communication agents.

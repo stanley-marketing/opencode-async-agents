@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 WebSocket authentication and authorization manager.
 Handles JWT tokens, session management, and role-based access control.

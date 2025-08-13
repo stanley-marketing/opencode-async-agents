@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 WebSocket manager for handling real-time communication.
 Drop-in replacement for TelegramManager with identical interface.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 High-Performance Message Queue System
 Implements Redis/RabbitMQ-like functionality with message reliability and priority queuing

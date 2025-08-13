@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Agent Health Monitor for the OpenCode-Slack system.
 Monitors agent status and detects anomalies like stuck states or infinite loops.
